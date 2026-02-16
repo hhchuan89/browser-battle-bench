@@ -1,0 +1,428 @@
+<template>
+  <div class="battle-arena w-full max-w-6xl mx-auto p-4">
+    <!-- Header: Progress & Score -->
+    <div class="bg-base-200 rounded-lg p-4 mb-4 border border-base-300">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+          {{ isComplete ? '🏆 BATTLE COMPLETE' : '⚔️ BATTLE ARENA' }}
+        </h2>
+        <div class="text-right">
+          <span class="text-2xl font-mono font-bold" :class="scoreColorClass">
+            <CountUp :value="displayScore" />
+          </span>
+          <span class="text-sm text-base-content/60">/{{ battleStore.session.maxPossibleScore }}</span>
+        </div>
+      </div>
+      
+      <!-- Progress Bar -->
+      <div class="w-full bg-base-300 rounded-full h-4 overflow-hidden border border-base-content/10">
+        <div 
+          class="h-full transition-all duration-700 ease-out relative"
+          :class="progressColorClass"
+          :style="{ width: progressPercent + '%' }"
+        >
+          <div class="absolute inset-0 bg-white/20 animate-shimmer"></div>
+        </div>
+      </div>
+      <div class="flex justify-between text-xs text-base-content/60 mt-1">
+        <span>Round {{ currentRound }} / {{ totalRounds }}</span>
+        <span>{{ progressPercent }}%</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Main: Current Question & Output -->
+      <div class="lg:col-span-2 space-y-4">
+        <!-- Current Challenge Card with Flip Animation -->
+        <div v-if="currentChallenge && !isComplete" class="challenge-card-container">
+          <div 
+            class="challenge-card"
+            :class="{ 'is-flipping': isFlipping }"
+          >
+            <div class="card bg-base-100 shadow-xl border border-base-300 challenge-card-inner">
+              <div class="card-body">
+                <div class="flex items-center gap-2 mb-2">
+                  <span 
+                    class="badge"
+                    :class="currentChallenge.type === 'control' ? 'badge-success' : 'badge-warning'"
+                  >
+                    {{ currentChallenge.type === 'control' ? 'CONTROL' : 'TRAP' }}
+                  </span>
+                  <span class="badge badge-ghost">{{ currentChallenge.category }}</span>
+                  <span class="text-xs text-base-content/60 ml-auto">{{ currentChallenge.id }}</span>
+                </div>
+                <h3 class="text-sm font-semibold text-base-content/70 mb-2">Current Challenge:</h3>
+                <p class="text-sm whitespace-pre-wrap font-mono bg-base-200 p-3 rounded challenge-text">{{ currentChallenge.description }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Output Terminal -->
+        <div class="card bg-black shadow-xl border border-gray-800">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs text-green-500 font-mono flex items-center gap-2">
+                MODEL OUTPUT
+                <PulseRing v-if="isProcessing" color="green" size="sm" :active="true" />
+              </span>
+              <span v-if="isProcessing" class="loading loading-dots loading-xs text-green-500"></span>
+            </div>
+            <pre class="text-green-400 font-mono text-sm overflow-x-auto whitespace-pre-wrap min-h-[150px] max-h-[300px] transition-all duration-300">{{ currentOutput || '[Waiting for output...]' }}</pre>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-2">
+          <button 
+            v-if="canStart && !isFighting"
+            class="btn btn-primary flex-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            @click="startBattle"
+          >
+            <span class="text-lg mr-2">⚔️</span> Start Logic Battle
+          </button>
+          <button 
+            v-if="isFighting"
+            class="btn btn-error flex-1 transition-all duration-200"
+            @click="resetBattle"
+          >
+            <span class="text-lg mr-2">⏹️</span> Abort Battle
+          </button>
+          <button 
+            v-if="isComplete"
+            class="btn btn-secondary flex-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            @click="resetBattle"
+          >
+            <span class="text-lg mr-2">🔄</span> New Battle
+          </button>
+        </div>
+
+        <!-- Error Display -->
+        <FadeTransition :show="!!battleStore.session.errorMessage" :duration="300">
+          <div v-if="battleStore.session.errorMessage" class="alert alert-error">
+            <span class="text-lg">⚠️</span>
+            <span>{{ battleStore.session.errorMessage }}</span>
+          </div>
+        </FadeTransition>
+      </div>
+
+      <!-- Sidebar: Round History -->
+      <div class="space-y-4">
+        <div class="card bg-base-100 shadow-xl border border-base-300">
+          <div class="card-body p-4">
+            <h3 class="font-bold mb-3 flex items-center gap-2">
+              📊 Round History
+              <span v-if="results.length > 0" class="badge badge-sm">
+                {{ results.filter(r => r.passed).length }}/{{ results.length }}
+              </span>
+            </h3>
+            
+            <div v-if="results.length === 0" class="text-center text-base-content/50 py-4">
+              No rounds completed yet
+            </div>
+            
+            <div v-else class="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin pr-1">
+              <FadeTransition 
+                v-for="(result, index) in results" 
+                :key="result.challengeId"
+                :show="true"
+                :duration="300"
+              >
+                <div 
+                  class="flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                  :class="result.passed ? 'bg-success/10 hover:bg-success/20' : 'bg-error/10 hover:bg-error/20'"
+                >
+                  <div class="text-lg">
+                    {{ result.passed ? '✅' : '❌' }}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium truncate">
+                      Round {{ index + 1 }}: {{ getChallengeDescription(result.challengeId) }}
+                    </div>
+                    <div class="text-xs text-base-content/60">
+                      Score: {{ result.score }} | {{ formatDuration(result.durationMs) }}
+                    </div>
+                    <div v-if="!result.passed && result.failureReason" class="text-xs text-error mt-1">
+                      {{ result.failureReason }}
+                    </div>
+                  </div>
+                </div>
+              </FadeTransition>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scenario Selector -->
+        <div class="card bg-base-100 shadow-xl border border-base-300">
+          <div class="card-body p-4">
+            <h3 class="font-bold mb-3">🎯 Select Scenario</h3>
+            <div class="space-y-2">
+              <button
+                v-for="scenario in availableScenarios"
+                :key="scenario.id"
+                class="btn btn-sm w-full justify-start transition-all duration-200"
+                :class="selectedScenario?.id === scenario.id ? 'btn-primary' : 'btn-ghost hover:btn-ghost hover:bg-base-200'"
+                @click="selectedScenario = scenario"
+                :disabled="isFighting"
+              >
+                <div class="text-left">
+                  <div class="font-medium">{{ scenario.name }}</div>
+                  <div class="text-xs opacity-70">{{ scenario.totalChallenges }} challenges</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Final Score Modal with Celebration -->
+    <FadeTransition :show="isComplete && showResults" :duration="500">
+      <div v-if="isComplete && showResults" class="modal modal-open">
+        <div class="modal-box max-w-md">
+          <h3 class="font-bold text-2xl mb-4 text-center">🏆 Battle Complete!</h3>
+          
+          <!-- Score Display with Animation -->
+          <div class="text-center mb-6">
+            <div 
+              class="text-6xl font-bold transition-all duration-500"
+              :class="finalScoreClass"
+            >
+              <CountUp 
+                :value="Math.round((battleStore.session.totalScore / battleStore.session.maxPossibleScore) * 100)" 
+                suffix="%"
+                :duration="1000"
+              />
+            </div>
+            <p class="text-lg mt-2">
+              {{ battleStore.session.totalScore }} / {{ battleStore.session.maxPossibleScore }} points
+            </p>
+            <p class="text-base-content/70 mt-1">
+              {{ correctCount }} correct out of {{ totalRounds }} rounds
+            </p>
+            
+            <!-- Performance Badge -->
+            <div class="mt-4">
+              <div 
+                class="inline-block px-4 py-2 rounded-full text-lg font-bold animate-bounce"
+                :class="performanceBadgeClass"
+              >
+                {{ performanceBadge }}
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-action justify-center">
+            <button class="btn btn-primary" @click="showResults = false">Close</button>
+            <button class="btn btn-secondary" @click="resetAndStart">Battle Again</button>
+          </div>
+        </div>
+      </div>
+    </FadeTransition>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+import { useBattleStore } from '../stores/battleStore';
+import { useSystemStore } from '../stores/systemStore';
+import { logicTrapsLevel1, logicTrapsGrouped } from '../data/traps';
+import type { BattleScenario } from '../types/battle';
+import CountUp from './shared/CountUp.vue';
+import FadeTransition from './shared/FadeTransition.vue';
+import PulseRing from './shared/PulseRing.vue';
+
+const battleStore = useBattleStore();
+const systemStore = useSystemStore();
+
+const availableScenarios = [logicTrapsLevel1, logicTrapsGrouped];
+const selectedScenario = ref<BattleScenario>(logicTrapsLevel1);
+const showResults = ref(true);
+const isFlipping = ref(false);
+const displayScore = ref(0);
+
+// Computed properties
+const currentChallenge = computed(() => battleStore.currentChallenge);
+const currentOutput = computed(() => systemStore.outputStream);
+const isProcessing = computed(() => battleStore.isProcessingRound);
+const isFighting = computed(() => battleStore.session.status === 'FIGHTING');
+const isComplete = computed(() => battleStore.session.status === 'COMPLETE');
+const canStart = computed(() => battleStore.canStart);
+const results = computed(() => battleStore.session.results);
+
+const currentRound = computed(() => {
+  if (isComplete.value) return battleStore.session.results.length;
+  return battleStore.session.currentIndex + 1;
+});
+
+const totalRounds = computed(() => {
+  return battleStore.currentScenario?.totalChallenges || selectedScenario.value.totalChallenges;
+});
+
+const progressPercent = computed(() => {
+  if (totalRounds.value === 0) return 0;
+  return Math.round((battleStore.session.currentIndex / totalRounds.value) * 100);
+});
+
+const correctCount = computed(() => {
+  return results.value.filter(r => r.passed).length;
+});
+
+const progressColorClass = computed(() => {
+  const pct = progressPercent.value;
+  if (pct < 30) return 'bg-error';
+  if (pct < 70) return 'bg-warning';
+  return 'bg-success';
+});
+
+const scoreColorClass = computed(() => {
+  if (!battleStore.session.maxPossibleScore) return 'text-base-content';
+  const pct = battleStore.session.totalScore / battleStore.session.maxPossibleScore;
+  if (pct < 0.5) return 'text-error';
+  if (pct < 0.8) return 'text-warning';
+  return 'text-success';
+});
+
+const finalScoreClass = computed(() => {
+  const pct = battleStore.session.totalScore / battleStore.session.maxPossibleScore;
+  if (pct >= 0.9) return 'text-success animate-pulse';
+  if (pct >= 0.7) return 'text-warning';
+  return 'text-error';
+});
+
+const performanceBadge = computed(() => {
+  const pct = battleStore.session.totalScore / battleStore.session.maxPossibleScore;
+  if (pct >= 0.95) return '🏅 Legendary!';
+  if (pct >= 0.85) return '🥈 Expert!';
+  if (pct >= 0.70) return '🥉 Skilled!';
+  if (pct >= 0.50) return '💪 Solid';
+  return '📚 Needs Practice';
+});
+
+const performanceBadgeClass = computed(() => {
+  const pct = battleStore.session.totalScore / battleStore.session.maxPossibleScore;
+  if (pct >= 0.95) return 'bg-success text-white';
+  if (pct >= 0.85) return 'bg-warning text-black';
+  if (pct >= 0.70) return 'bg-info text-white';
+  if (pct >= 0.50) return 'bg-base-300';
+  return 'bg-error text-white';
+});
+
+// Watch for score changes
+watch(() => battleStore.session.totalScore, (newScore) => {
+  displayScore.value = newScore;
+}, { immediate: true });
+
+// Watch for challenge changes to trigger flip animation
+watch(() => battleStore.session.currentIndex, () => {
+  if (isFighting.value) {
+    isFlipping.value = true;
+    setTimeout(() => {
+      isFlipping.value = false;
+    }, 300);
+  }
+});
+
+// Methods
+function startBattle() {
+  showResults.value = true;
+  battleStore.startBattle(selectedScenario.value);
+}
+
+function resetBattle() {
+  battleStore.resetBattle();
+}
+
+function resetAndStart() {
+  resetBattle();
+  setTimeout(() => startBattle(), 100);
+}
+
+function getChallengeDescription(challengeId: string): string {
+  const challenge = selectedScenario.value.challenges.find(c => c.id === challengeId);
+  return challenge?.description.substring(0, 30) + '...' || challengeId;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+// Watch for completion to show results
+watch(isComplete, (complete) => {
+  if (complete) {
+    showResults.value = true;
+  }
+});
+</script>
+
+<style scoped>
+.battle-arena {
+  min-height: 600px;
+}
+
+/* Challenge Card Flip Animation */
+.challenge-card-container {
+  perspective: 1000px;
+}
+
+.challenge-card {
+  transition: transform 0.3s ease;
+}
+
+.challenge-card.is-flipping .challenge-card-inner {
+  animation: cardFlip 0.3s ease;
+}
+
+@keyframes cardFlip {
+  0% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: rotateX(10deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+/* Shimmer effect for progress bar */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+/* Custom scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.3);
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(75, 85, 99, 0.5);
+}
+
+/* Challenge text animation */
+.challenge-text {
+  transition: all 0.3s ease;
+}
+</style>

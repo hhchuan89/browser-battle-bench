@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Cyberpunk tweaks can go here */
+body {
+    background-color: #000;
+    font-family: 'Courier New', Courier, monospace; /* Terminal vibes */
+}
