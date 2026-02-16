@@ -70,7 +70,12 @@ const startBattle = async () => {
 
     const response = await generate(fullPrompt, {
       max_tokens: 512,
-      temperature: 0.7
+      temperature: 0.7,
+      onChunk: (chunk, accumulated) => {
+        // Live token streaming - update UI in real-time
+        outputText.value = accumulated
+        fullResponse = accumulated
+      }
     })
 
     fullResponse = response
@@ -82,8 +87,8 @@ const startBattle = async () => {
     // Validate and score
     const validation = validateStream(fullResponse)
     
-    // Parse schema for scoring
-    const schemaObj = z.object(selectedSchema.value.schema as any)
+    // Parse schema for scoring (using strict mode for security)
+    const schemaObj = z.object(selectedSchema.value.schema as any).strict()
     
     const score = calculateScore(
       validation,

@@ -11,6 +11,13 @@ export interface UseWebLLMOptions {
   initProgressCallback?: (report: WebLLMProgress) => void
 }
 
+export interface GenerateOptions {
+  max_tokens?: number
+  temperature?: number
+  top_p?: number
+  onChunk?: (chunk: string, accumulated: string) => void
+}
+
 export interface UseWebLLMReturn {
   engine: Ref<webllm.MLCEngineInterface | null>
   isLoading: Ref<boolean>
@@ -94,9 +101,9 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
     }
   }
 
-  const generate = async (
+  generate = async (
     prompt: string,
-    options: { max_tokens?: number; temperature?: number; top_p?: number } = {}
+    options: GenerateOptions = {}
   ): Promise<string> => {
     if (!engine.value) {
       throw new Error('Engine not initialized. Call initializeEngine() first.')
@@ -110,8 +117,9 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
       ]
 
       const chunks: string[] = []
+      let accumulated = ''
       
-      const chunks1 = await engine.value.chat.completions.create({
+      const chunkStream = await engine.value.chat.completions.create({
         messages,
         temperature: options.temperature ?? 0.7,
         top_p: options.top_p ?? 0.9,
@@ -120,14 +128,17 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
         stream_options: { include_usage: false }
       })
 
-      for await (const chunk of chunks1) {
+      for await (const chunk of chunkStream) {
         const content = chunk.choices[0]?.delta?.content
         if (content) {
           chunks.push(content)
+          accumulated += content
+          // Call the onChunk callback for live streaming
+          options.onChunk?.(content, accumulated)
         }
       }
 
-      return chunks.join('')
+      return accumulated
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw error.value
