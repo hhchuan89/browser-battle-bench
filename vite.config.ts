@@ -6,10 +6,10 @@ import { resolve } from 'path'
 export default defineConfig(({ mode }) => ({
   plugins: [vue()],
   
-  // Base URL for GitHub Pages deployment
+  // Base URL for deployment
   // Set to '/browser-battle-bench/' for GitHub Pages
-  // Set to '/' for custom domain or local development
-  base: process.env.VITE_BASE_URL || '/browser-battle-bench/',
+  // Set to '/' for Vercel custom domain or local development
+  base: process.env.VITE_BASE_URL || '/',
   
   resolve: {
     alias: {
