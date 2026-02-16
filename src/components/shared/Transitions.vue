@@ -9,102 +9,15 @@
  * - Number counting
  * - Page elements
  * 
- * @example
- * <!-- Fade transition -->
- * <FadeTransition :show="isVisible">
- *   <div>Content fades in/out</div>
- * </FadeTransition>
- * 
- * <!-- Slide transition -->
- * <SlideTransition direction="right" :show="isOpen">
- *   <div>Content slides from right</div>
- * </SlideTransition>
+ * This file provides the CSS styles for transitions.
+ * Individual components (FadeTransition, SlideTransition, etc.) 
+ * are exported from their own files in this directory.
  */
 
-import { ref, watch, onMounted, computed } from 'vue';
-
-// ===== Fade Transition Props =====
-interface FadeProps {
-  /** Whether the content should be visible */
-  show?: boolean;
-  /** Transition duration in milliseconds */
-  duration?: number;
-}
-
-// ===== Slide Transition Props =====
-interface SlideProps {
-  /** Direction to slide from */
-  direction?: 'left' | 'right' | 'up' | 'down';
-  /** Whether the content should be visible */
-  show?: boolean;
-  /** Transition duration in milliseconds */
-  duration?: number;
-}
-
-// ===== CountUp Animation Props =====
-interface CountUpProps {
-  /** The target value to animate to */
-  value: number;
-  /** Animation duration in milliseconds */
-  duration?: number;
-  /** Suffix to display after the number */
-  suffix?: string;
-  /** Prefix to display before the number */
-  prefix?: string;
-}
-
-// Export individual transition components for granular use
-</script>
-
-<script lang="ts">
-/**
- * FadeTransition - Smooth opacity-based transition
- * 
- * Provides a simple fade in/out effect for content visibility changes.
- * Ideal for modals, overlays, and subtle content swaps.
- */
-export const FadeTransition = defineComponent({
-  props: {
-    show: { type: Boolean, default: true },
-    duration: { type: Number, default: 300 }
-  },
-  setup(props, { slots }) {
-    return () => h(Transition, {
-      name: 'fade',
-      duration: props.duration
-    }, () => props.show ? slots.default?.() : null);
-  }
-});
-
-import { defineComponent, h, Transition } from 'vue';
-
-/**
- * SlideTransition - Directional slide animation
- * 
- * Slides content in from a specified direction with opacity fade.
- * Perfect for side panels, tab content, and page transitions.
- */
-export const SlideTransition = defineComponent({
-  props: {
-    show: { type: Boolean, default: true },
-    direction: { type: String as PropType<'left' | 'right' | 'up' | 'down'>, default: 'right' },
-    duration: { type: Number, default: 300 }
-  },
-  setup(props, { slots }) {
-    const axis = computed(() => props.direction === 'left' || props.direction === 'right' ? 'X' : 'Y');
-    const sign = computed(() => props.direction === 'right' || props.direction === 'down' ? '' : '-');
-    
-    return () => h(Transition, {
-      name: `slide-${props.direction}`,
-      duration: props.duration
-    }, () => props.show ? slots.default?.() : null);
-  }
-});
 </script>
 
 <template>
   <div class="transitions-library">
-    <!-- This is a meta-component that documents available transitions -->
     <slot />
   </div>
 </template>
@@ -196,7 +109,7 @@ export const SlideTransition = defineComponent({
 }
 
 @keyframes bounce-in {
-  0% {
+ 0% {
     transform: scale(0);
     opacity: 0;
   }

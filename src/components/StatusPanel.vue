@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useSystemStore } from '../stores/systemStore';
 
 const store = useSystemStore();

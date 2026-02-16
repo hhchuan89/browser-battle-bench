@@ -171,7 +171,6 @@ export function useStreamValidator(
 
     // Track non-whitespace characters for buffer
     const nonWhitespaceInChunk = chunk.replace(/\s/g, '').length
-    const prevNonWhitespace = nonWhitespaceCount.value
     nonWhitespaceCount.value += nonWhitespaceInChunk
 
     // Check if whitespace buffer is full (30 non-whitespace chars)

@@ -10,7 +10,6 @@ import { ref, computed } from 'vue';
 import type {
   EnduranceSession,
   EnduranceScenario,
-  EnduranceStatus,
   MemorySnapshot,
   LatencyRecord,
   ConcurrentResult,
@@ -179,9 +178,6 @@ export const useEnduranceStore = defineStore('endurance', () => {
     
     addLog(`Round ${roundNum}: Starting inference...`);
     
-    // Record memory before
-    const memBefore = getCurrentMemory();
-    
     try {
       await systemStore.runInference(currentScenario.value.prompt);
       
@@ -238,7 +234,6 @@ export const useEnduranceStore = defineStore('endurance', () => {
   async function runConcurrentBatch(roundNum: number, concurrency: number) {
     if (!currentScenario.value) return;
     
-    const systemStore = useSystemStore();
     const scenario = currentScenario.value;
     
     addLog(`[${roundNum}] Starting ${concurrency}x concurrent inferences...`);

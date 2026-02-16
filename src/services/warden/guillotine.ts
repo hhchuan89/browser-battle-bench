@@ -1,8 +1,4 @@
-import { BattleResponseSchema } from './schema';
-
 export class StreamGuillotine {
-  private hasStarted = false;
-
   /**
    * Checks the accumulated stream text for violations.
    * @param fullTextSoFar The complete text generated so far.
@@ -18,7 +14,6 @@ export class StreamGuillotine {
           reason: "Response must start with JSON object '{'. Markdown preamble is forbidden.",
         };
       }
-      this.hasStarted = true;
     }
 
     // Rule 2: MUST NOT contain "```" (markdown code fence).

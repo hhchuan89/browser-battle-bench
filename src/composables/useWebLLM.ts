@@ -1,5 +1,5 @@
 import * as webllm from '@mlc-ai/web-llm'
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
 
 export interface WebLLMProgress {
   text: string
@@ -12,13 +12,13 @@ export interface UseWebLLMOptions {
 }
 
 export interface UseWebLLMReturn {
-  engine: shallowRef<webllm.MLCEngineInterface | null>
-  isLoading: ReturnType<typeof ref<boolean>>
-  progress: ReturnType<typeof ref<number>>
-  error: ReturnType<typeof ref<Error | null>>
+  engine: Ref<webllm.MLCEngineInterface | null>
+  isLoading: Ref<boolean>
+  progress: Ref<number>
+  error: Ref<Error | null>
   initializeEngine: () => Promise<void>
   loadModel: (modelId: string, options?: { temperature?: number; top_p?: number }) => Promise<void>
-  generate: (prompt: string, options?: { max_tokens?: number }) => Promise<string>
+  generate: (prompt: string, options?: { max_tokens?: number; temperature?: number; top_p?: number }) => Promise<string>
   terminate: () => Promise<void>
 }
 
@@ -55,7 +55,7 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
         'Llama-3.1-8B-Instruct-q4f32_1-MLC', // Default model, can be overridden
         {
           initProgressCallback,
-          logLevel: 'WARNING'
+          logLevel: 'WARN' as webllm.LogLevel
         }
       )
       engine.value = newEngine
@@ -69,7 +69,7 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
 
   const loadModel = async (
     modelId: string,
-    options: { temperature?: number; top_p?: number } = {}
+    _options: { temperature?: number; top_p?: number } = {}
   ) => {
     if (!engine.value) {
       await initializeEngine()
@@ -96,7 +96,7 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
 
   const generate = async (
     prompt: string,
-    options: { max_tokens?: number } = {}
+    options: { max_tokens?: number; temperature?: number; top_p?: number } = {}
   ): Promise<string> => {
     if (!engine.value) {
       throw new Error('Engine not initialized. Call initializeEngine() first.')
@@ -117,7 +117,7 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
         top_p: options.top_p ?? 0.9,
         max_tokens: options.max_tokens ?? 512,
         stream: true,
-        streamOptions: { include_usage: false }
+        stream_options: { include_usage: false }
       })
 
       for await (const chunk of chunks1) {

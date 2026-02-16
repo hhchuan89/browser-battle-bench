@@ -20,8 +20,9 @@ const props = withDefaults(defineProps<Props>(), {
   duration: 300
 });
 
-const axis = props.direction === 'left' || props.direction === 'right' ? 'X' : 'Y';
-const sign = props.direction === 'right' || props.direction === 'down' ? '' : '-';
+// Note: axis and sign are computed but reserved for future use with dynamic transforms
+// const axis = props.direction === 'left' || props.direction === 'right' ? 'X' : 'Y';
+// const sign = props.direction === 'right' || props.direction === 'down' ? '' : '-';
 </script>
 
 <template>

@@ -11,8 +11,7 @@ import type {
   Challenge, 
   BattleScenario, 
   BattleSession, 
-  RoundResult, 
-  BattleStatus 
+  RoundResult
 } from '../types/battle';
 import { useSystemStore } from './systemStore';
 import { JudgeLogic } from '../services/warden/JudgeLogic';
