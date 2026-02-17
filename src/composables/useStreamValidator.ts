@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useYapometer } from './useYapometer'
 
 export interface StreamValidationResult {
   isValid: boolean
@@ -79,6 +80,8 @@ export function useStreamValidator(
   const totalChars = ref(0)
   const guillotined = ref(false)
 
+  const { calculateYapRate } = useYapometer()
+
   const result = computed<StreamValidationResult>(() => ({
     isValid: startsWithBrace.value && !hasCodeBlock.value && detectedPrefixes.value.length === 0,
     shouldGuillotine: guillotined.value,
@@ -86,24 +89,9 @@ export function useStreamValidator(
     hasCodeBlock: hasCodeBlock.value,
     startsWithBrace: startsWithBrace.value,
     whitespaceBufferFull: whitespaceBufferFull.value,
-    yapRate: calculateYapRate(),
+    yapRate: calculateYapRate(accumulated.value),
     charTimestamps: charTimestamps.value
   }))
-
-  const calculateJsonSpanLength = (): number => {
-    if (!accumulated.value) return 0
-    const firstBrace = accumulated.value.indexOf('{')
-    const lastBrace = accumulated.value.lastIndexOf('}')
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return 0
-    return lastBrace - firstBrace + 1
-  }
-
-  const calculateYapRate = (): number => {
-    if (totalChars.value === 0) return 0
-    const jsonSpanLength = calculateJsonSpanLength()
-    const yapChars = Math.max(0, totalChars.value - jsonSpanLength)
-    return Math.min(100, (yapChars / totalChars.value) * 100)
-  }
 
   const reset = () => {
     accumulated.value = ''
@@ -223,7 +211,7 @@ export function useStreamValidator(
    * Get yap rate percentage
    */
   const getYapRate = (): number => {
-    return calculateYapRate()
+    return calculateYapRate(accumulated.value)
   }
 
   /**
