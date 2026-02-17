@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createBBBReportBundle, serializeBBBReportBundle } from '@/lib/report-contract'
+import { APP_VERSION, WEBLLM_VERSION } from '@/lib/app-versions'
 import { createRunHashMaterial, generateRunHash } from '@/lib/run-hash'
 import { createReplayHashMaterial, generateReplayHash } from '@/lib/replay-hash'
 
@@ -58,6 +59,8 @@ describe('report-contract', () => {
     expect(bundle.report.test_suite_version).toBe('1.0.0')
     expect(bundle.report.run_hash).toMatch(/^[a-f0-9]{64}$/)
     expect(bundle.report.replay_hash).toMatch(/^[a-f0-9]{64}$/)
+    expect(bundle.report.app_version).toBe(APP_VERSION)
+    expect(bundle.report.models_tested[0]?.webllm_version).toBe(WEBLLM_VERSION)
     expect(bundle.report.models_tested).toHaveLength(1)
     expect(bundle.rawOutputs.raw_outputs).toHaveLength(2)
 

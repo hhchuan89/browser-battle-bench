@@ -1,4 +1,5 @@
 import { TEST_SUITE_VERSION } from '@/data/suite-version'
+import { APP_VERSION, WEBLLM_VERSION } from '@/lib/app-versions'
 import {
   createRunHashMaterial,
   generateRunHash,
@@ -18,8 +19,6 @@ import type {
 } from '@/types/report'
 
 const BBB_REPORT_VERSION = '3.4'
-const APP_VERSION = '0.0.1'
-const WEBLLM_VERSION = '0.2.78'
 
 export interface CreateBBBReportBundleInput {
   modelId: string
