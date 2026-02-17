@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createBBBReportBundle, serializeBBBReportBundle } from '@/lib/report-contract'
 import { createRunHashMaterial, generateRunHash } from '@/lib/run-hash'
+import { createReplayHashMaterial, generateReplayHash } from '@/lib/replay-hash'
 
 vi.mock('@/lib/model-fingerprint', () => ({
   getModelFingerprint: vi.fn().mockResolvedValue('mockfingerprint1234'),
@@ -14,12 +15,18 @@ describe('report-contract', () => {
         run: 1,
         model_id: 'model-a',
         output: '{"answer":"A"}',
+        ttft_ms: 12,
+        total_time_ms: 120,
+        char_timestamps: [0, 50],
       },
       {
         test_id: 'case_2',
         run: 2,
         model_id: 'model-a',
         output: '{"answer":"B"}',
+        ttft_ms: 10,
+        total_time_ms: 110,
+        char_timestamps: [0, 50, 100],
       },
     ]
 
@@ -50,6 +57,7 @@ describe('report-contract', () => {
     expect(bundle.report.version).toBe('3.4')
     expect(bundle.report.test_suite_version).toBe('1.0.0')
     expect(bundle.report.run_hash).toMatch(/^[a-f0-9]{64}$/)
+    expect(bundle.report.replay_hash).toMatch(/^[a-f0-9]{64}$/)
     expect(bundle.report.models_tested).toHaveLength(1)
     expect(bundle.rawOutputs.raw_outputs).toHaveLength(2)
 
@@ -65,6 +73,20 @@ describe('report-contract', () => {
 
     const expectedHash = await generateRunHash(expectedMaterial)
     expect(bundle.report.run_hash).toBe(expectedHash)
+
+    const expectedReplayMaterial = createReplayHashMaterial({
+      testSuiteVersion: '1.0.0',
+      modelId: 'model-a',
+      rawOutputs: rawOutputs.map((entry) => ({
+        test_id: entry.test_id,
+        run: entry.run,
+        ttft_ms: entry.ttft_ms ?? null,
+        total_time_ms: entry.total_time_ms ?? null,
+        char_timestamps: entry.char_timestamps ?? [],
+      })),
+    })
+    const expectedReplayHash = await generateReplayHash(expectedReplayMaterial)
+    expect(bundle.report.replay_hash).toBe(expectedReplayHash)
   })
 
   it('serializes bundle as pretty JSON strings', async () => {

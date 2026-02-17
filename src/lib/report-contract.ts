@@ -4,6 +4,11 @@ import {
   generateRunHash,
   type RunHashRawOutput,
 } from '@/lib/run-hash'
+import {
+  createReplayHashMaterial,
+  generateReplayHash,
+  type ReplayHashRawOutput,
+} from '@/lib/replay-hash'
 import { getModelFingerprint } from '@/lib/model-fingerprint'
 import type {
   BBBHardwareReport,
@@ -91,6 +96,17 @@ const toRunHashRawOutputs = (entries: BBBRawOutputEntry[]): RunHashRawOutput[] =
     output: entry.output,
   }))
 
+const toReplayHashRawOutputs = (
+  entries: BBBRawOutputEntry[]
+): ReplayHashRawOutput[] =>
+  entries.map((entry) => ({
+    test_id: entry.test_id,
+    run: entry.run,
+    ttft_ms: entry.ttft_ms ?? null,
+    total_time_ms: entry.total_time_ms ?? null,
+    char_timestamps: entry.char_timestamps ?? [],
+  }))
+
 export const createBBBReportBundle = async (
   input: CreateBBBReportBundleInput
 ): Promise<BBBReportBundle> => {
@@ -104,6 +120,12 @@ export const createBBBReportBundle = async (
     rawOutputs: toRunHashRawOutputs(rawOutputs),
   })
   const runHash = await generateRunHash(material)
+  const replayHashMaterial = createReplayHashMaterial({
+    testSuiteVersion,
+    modelId: input.modelId,
+    rawOutputs: toReplayHashRawOutputs(rawOutputs),
+  })
+  const replayHash = await generateReplayHash(replayHashMaterial)
 
   const modelFingerprint =
     input.modelFingerprint ?? (await getModelFingerprint(input.modelId))
@@ -115,7 +137,7 @@ export const createBBBReportBundle = async (
       app_version: APP_VERSION,
       test_suite_version: testSuiteVersion,
       run_hash: runHash,
-      replay_hash: input.replayHash,
+      replay_hash: input.replayHash ?? replayHash,
       is_mobile: resolveIsMobile(input.isMobile),
       hardware: resolveHardware(input.hardware),
       models_tested: [

@@ -93,7 +93,9 @@ export const useBattleStore = defineStore('battle', () => {
     run: number;
     model_id: string;
     output: string;
+    ttft_ms: number | null;
     total_time_ms: number;
+    char_timestamps: number[];
     event_log: Array<Record<string, unknown>>;
   }> => {
     const modelId = resolveSelectedModelId();
@@ -102,7 +104,9 @@ export const useBattleStore = defineStore('battle', () => {
       run: index + 1,
       model_id: modelId,
       output: result.rawOutput,
+      ttft_ms: null,
       total_time_ms: result.durationMs,
+      char_timestamps: [],
       event_log: [
         {
           type: 'round_complete',

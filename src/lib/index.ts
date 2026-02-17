@@ -7,6 +7,12 @@ export {
   generateRunHash,
   generateRunHashFromRawOutputs,
 } from './run-hash'
+export {
+  createReplayHashMaterial,
+  serializeReplayHashMaterial,
+  generateReplayHash,
+  generateReplayHashFromRawOutputs,
+} from './replay-hash'
 export { createBBBReportBundle, serializeBBBReportBundle } from './report-contract'
 
 // Placeholder for model cache utilities
