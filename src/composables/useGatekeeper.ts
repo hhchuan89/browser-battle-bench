@@ -29,8 +29,10 @@ export function useGatekeeper() {
       try {
         const adapter = await (navigator as any).gpu.requestAdapter()
         if (adapter) {
-          const info = adapter.requestAdapterInfo()
-          gpuName = info.deviceName
+          if (typeof adapter.requestAdapterInfo === 'function') {
+            const info = await adapter.requestAdapterInfo()
+            gpuName = info.deviceName
+          }
           // Estimate VRAM (unified memory for Apple Silicon)
           // Default estimate, refine based on device
           const ua = navigator.userAgent

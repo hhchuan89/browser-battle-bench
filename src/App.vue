@@ -27,18 +27,18 @@ const isActive = (path: string) => route.path === path
           </div>
           
           <div class="flex gap-1">
-            <a 
-              v-for="item in navItems" 
+            <router-link
+              v-for="item in navItems"
               :key="item.path"
-              :href="item.path"
+              :to="item.path"
               class="px-3 py-2 rounded transition-colors text-sm"
-              :class="isActive(item.path) 
-                ? 'bg-green-800 text-black' 
+              :class="isActive(item.path)
+                ? 'bg-green-800 text-black'
                 : 'hover:bg-green-900 hover:text-green-300'"
             >
               <span class="mr-1">{{ item.icon }}</span>
               <span class="hidden sm:inline">{{ item.label }}</span>
-            </a>
+            </router-link>
           </div>
         </div>
       </div>
