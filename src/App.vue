@@ -10,6 +10,9 @@ const navItems = [
   { path: '/stress', label: 'Stress', icon: '🔥' },
   { path: '/history', label: 'History', icon: '📜' },
   { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+  ...(import.meta.env.DEV
+    ? [{ path: '/diagnostics', label: 'Diagnostics', icon: '🧪' }]
+    : []),
 ]
 
 const isActive = (path: string) => route.path === path

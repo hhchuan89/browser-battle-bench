@@ -37,4 +37,15 @@ test.describe('BBB smoke routes', () => {
     await expect(page.getByRole('heading', { name: /Leaderboard/i })).toBeVisible()
     await expect(page.getByText(/coming soon/i)).toBeVisible()
   })
+
+  test('history renders placeholder copy', async ({ page }) => {
+    await page.goto('/history')
+    await expect(page.getByRole('heading', { name: /History/i })).toBeVisible()
+    await expect(page.getByText(/coming soon/i)).toBeVisible()
+  })
+
+  test('diagnostics renders heading', async ({ page }) => {
+    await page.goto('/diagnostics')
+    await expect(page.getByRole('heading', { name: /Diagnostics/i })).toBeVisible()
+  })
 })

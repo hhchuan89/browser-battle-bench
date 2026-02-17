@@ -145,3 +145,5 @@ plan-job/
 .DS_Store
 .playwright-daemon/
 .playwright-sockets/
+test-results/
+playwright-report/
