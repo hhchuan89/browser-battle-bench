@@ -25,7 +25,7 @@ export interface UseWebLLMReturn {
   error: Ref<Error | null>
   initializeEngine: () => Promise<void>
   loadModel: (modelId: string, options?: { temperature?: number; top_p?: number }) => Promise<void>
-  generate: (prompt: string, options?: { max_tokens?: number; temperature?: number; top_p?: number }) => Promise<string>
+  generate: (prompt: string, options?: GenerateOptions) => Promise<string>
   terminate: () => Promise<void>
 }
 
@@ -48,7 +48,7 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
     options.initProgressCallback?.({
       text: report.text,
       progress: report.progress,
-      timeElapsed: 0 // WebLLM doesn't provide this directly
+      timeElapsed: 0
     })
   }
 
@@ -57,9 +57,8 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
       isLoading.value = true
       error.value = null
       
-      // Use CreateMLCEngine from web-llm
       const newEngine = await webllm.CreateMLCEngine(
-        'Llama-3.1-8B-Instruct-q4f32_1-MLC', // Default model, can be overridden
+        'Llama-3.1-8B-Instruct-q4f32_1-MLC',
         {
           initProgressCallback,
           logLevel: 'WARN' as webllm.LogLevel
@@ -86,11 +85,6 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
       isLoading.value = true
       error.value = null
       progress.value = 0
-
-      // For now, the engine is already initialized with a default model
-      // In production, you'd reload with a different model
-      // This is a simplified implementation
-      
       console.log(`Model ${modelId} loaded successfully`)
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -101,9 +95,9 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
     }
   }
 
-  generate = async (
+  const generate = async (
     prompt: string,
-    options: GenerateOptions = {}
+    opts: GenerateOptions = {}
   ): Promise<string> => {
     if (!engine.value) {
       throw new Error('Engine not initialized. Call initializeEngine() first.')
@@ -116,14 +110,13 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
         { role: 'user', content: prompt }
       ]
 
-      const chunks: string[] = []
       let accumulated = ''
       
       const chunkStream = await engine.value.chat.completions.create({
         messages,
-        temperature: options.temperature ?? 0.7,
-        top_p: options.top_p ?? 0.9,
-        max_tokens: options.max_tokens ?? 512,
+        temperature: opts.temperature ?? 0.7,
+        top_p: opts.top_p ?? 0.9,
+        max_tokens: opts.max_tokens ?? 512,
         stream: true,
         stream_options: { include_usage: false }
       })
@@ -131,10 +124,8 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
       for await (const chunk of chunkStream) {
         const content = chunk.choices[0]?.delta?.content
         if (content) {
-          chunks.push(content)
           accumulated += content
-          // Call the onChunk callback for live streaming
-          options.onChunk?.(content, accumulated)
+          opts.onChunk?.(content, accumulated)
         }
       }
 
@@ -147,7 +138,6 @@ export function useWebLLM(options: UseWebLLMOptions = {}): UseWebLLMReturn {
 
   const terminate = async () => {
     if (engine.value) {
-      // WebLLM doesn't have explicit terminate, but we can reset the reference
       engine.value = null
     }
     progress.value = 0

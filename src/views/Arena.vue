@@ -23,12 +23,12 @@ const firstTokenTime = ref<number | null>(null)
 
 // Composables
 const { 
-  engine, 
-  isLoading, 
+  // engine, 
+  // isLoading, 
   progress, 
-  error: llmError,
+  // error: llmError,
   initializeEngine, 
-  loadModel, 
+  // loadModel, 
   generate 
 } = useWebLLM()
 
@@ -64,18 +64,13 @@ const startBattle = async () => {
     // Build prompt
     const fullPrompt = `${selectedSchema.value.systemPrompt}\n\n${selectedSchema.value.prompt}`
 
-    // Start generation with streaming
+    // Start generation
     const startTime = Date.now()
     let fullResponse = ''
 
     const response = await generate(fullPrompt, {
       max_tokens: 512,
-      temperature: 0.7,
-      onChunk: (chunk, accumulated) => {
-        // Live token streaming - update UI in real-time
-        outputText.value = accumulated
-        fullResponse = accumulated
-      }
+      temperature: 0.7
     })
 
     fullResponse = response
@@ -104,15 +99,6 @@ const startBattle = async () => {
     error.value = e instanceof Error ? e.message : String(e)
     battleStatus.value = 'idle'
   }
-}
-
-// Check WebGPU support
-const checkWebGPU = async () => {
-  if (!navigator.gpu) {
-    error.value = 'WebGPU is not supported in your browser. Please use Chrome/Edge with WebGPU enabled.'
-    return false
-  }
-  return true
 }
 
 // Reset battle
