@@ -121,7 +121,10 @@ export const useBattleStore = defineStore('battle', () => {
 
       // Judge the result
       const judge = new JudgeLogic();
-      const judgment = judge.evaluate(rawOutput, challenge.expectedAnswer);
+      const judgment = judge.evaluate(rawOutput, challenge.expectedAnswer, {
+        answerType: challenge.answerType,
+        tolerance: challenge.tolerance
+      });
 
       // Record result
       const result: RoundResult = {

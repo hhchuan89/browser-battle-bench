@@ -191,7 +191,10 @@ export const useEnduranceStore = defineStore('endurance', () => {
       // Judge the result
       const rawOutput = systemStore.outputStream;
       const judge = new JudgeLogic();
-      const judgment = judge.evaluate(rawOutput, currentScenario.value.expectedAnswer);
+      const judgment = judge.evaluate(rawOutput, currentScenario.value.expectedAnswer, {
+        answerType: currentScenario.value.answerType,
+        tolerance: currentScenario.value.tolerance
+      });
       const passOutcome: EndurancePassOutcome = {
         round: roundNum,
         key: `seq-${roundNum}`,
@@ -365,7 +368,10 @@ export const useEnduranceStore = defineStore('endurance', () => {
       const endTime = Date.now();
       
       const judge = new JudgeLogic();
-      const judgment = judge.evaluate(requestOutput, expectedAnswer);
+      const judgment = judge.evaluate(requestOutput, expectedAnswer, {
+        answerType: currentScenario.value?.answerType,
+        tolerance: currentScenario.value?.tolerance
+      });
       
       return {
         requestId,

@@ -32,6 +32,7 @@ export const enduranceScenarios: EnduranceScenario[] = [
     rounds: 100,
     prompt: JSON_EXTRACTION_PROMPT,
     expectedAnswer: 'PARIS',
+    answerType: 'contains',
     description: 'Sequential inference stress test to detect memory leaks over 100 rounds'
   },
   {
@@ -42,6 +43,7 @@ export const enduranceScenarios: EnduranceScenario[] = [
     concurrency: 4,
     prompt: JSON_EXTRACTION_PROMPT,
     expectedAnswer: 'PARIS',
+    answerType: 'contains',
     description: '4 parallel inferences per round to test WebGPU scheduling'
   },
   {
@@ -52,6 +54,7 @@ export const enduranceScenarios: EnduranceScenario[] = [
     concurrency: 2,
     prompt: LOGIC_TRAP_PROMPT,
     expectedAnswer: 'YES',
+    answerType: 'contains',
     description: '50 rounds with 2 concurrent requests per round'
   },
   {
@@ -61,6 +64,7 @@ export const enduranceScenarios: EnduranceScenario[] = [
     rounds: 10,
     prompt: JSON_EXTRACTION_PROMPT,
     expectedAnswer: 'PARIS',
+    answerType: 'contains',
     description: 'Fast 10-round test for quick validation'
   }
 ];

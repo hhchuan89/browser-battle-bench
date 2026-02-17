@@ -1,3 +1,5 @@
+import type { AnswerType } from './judge';
+
 /**
  * Battle Types - Core data structures for the Logic Traps battle system
  */
@@ -18,6 +20,10 @@ export interface Challenge {
   };
   /** The correct answer (A, B, C, D, or specific value) */
   expectedAnswer: string;
+  /** Answer comparison mode */
+  answerType?: AnswerType;
+  /** Numeric tolerance (when answerType = numeric_tolerance) */
+  tolerance?: number;
   /** Whether this is a control question or a trap */
   type: 'control' | 'trap';
   /** Category of the challenge */

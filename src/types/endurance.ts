@@ -1,3 +1,5 @@
+import type { AnswerType } from './judge';
+
 /**
  * Endurance Types - Stress testing data structures
  */
@@ -67,6 +69,10 @@ export interface EnduranceScenario {
   prompt: string;
   /** Expected answer for validation */
   expectedAnswer: string;
+  /** Answer comparison mode */
+  answerType?: AnswerType;
+  /** Numeric tolerance (when answerType = numeric_tolerance) */
+  tolerance?: number;
   /** Description */
   description: string;
 }

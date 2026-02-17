@@ -5,6 +5,8 @@
  * Extracts the answer field from JSON and compares it to the expected value.
  */
 
+import type { AnswerType, JudgeEvaluateOptions } from '@/types/judge';
+
 export interface JudgmentResult {
   /** Whether the answer is correct */
   pass: boolean;
@@ -40,10 +42,15 @@ export class JudgeLogic {
   /**
    * Evaluate a model's response
    * @param rawOutput - The raw text output from the model
-   * @param expectedAnswer - The expected answer (case-insensitive comparison)
+   * @param expectedAnswer - The expected answer
+   * @param options - Answer comparison mode settings
    * @returns JudgmentResult with pass/fail status
    */
-  evaluate(rawOutput: string, expectedAnswer: string): JudgmentResult {
+  evaluate(
+    rawOutput: string,
+    expectedAnswer: string,
+    options: JudgeEvaluateOptions = {}
+  ): JudgmentResult {
     // Try to extract JSON from the output
     const jsonMatch = this.extractJson(rawOutput);
     
@@ -74,22 +81,18 @@ export class JudgeLogic {
       };
     }
 
-    const parsedAnswer = String(parsed.answer).trim().toUpperCase();
-    const expected = expectedAnswer.trim().toUpperCase();
+    const parsedAnswer = String(parsed.answer).trim();
+    const comparison = this.compareAnswers(parsed.answer, expectedAnswer, options);
 
-    // Compare answers (case-insensitive)
-    if (parsedAnswer === expected) {
-      return {
-        pass: true,
-        parsedAnswer
-      };
-    } else {
-      return {
-        pass: false,
-        parsedAnswer,
-        reason: `Expected "${expected}" but got "${parsedAnswer}"`
-      };
+    if (comparison.pass) {
+      return { pass: true, parsedAnswer };
     }
+
+    return {
+      pass: false,
+      parsedAnswer,
+      reason: comparison.reason
+    };
   }
 
   /**
@@ -177,6 +180,200 @@ export class JudgeLogic {
     return null;
   }
 
+  private compareAnswers(
+    parsedAnswer: unknown,
+    expectedAnswer: string,
+    options: JudgeEvaluateOptions
+  ): { pass: boolean; reason?: string } {
+    const answerType: AnswerType = options.answerType || 'exact';
+
+    switch (answerType) {
+      case 'exact':
+        return this.compareExact(parsedAnswer, expectedAnswer);
+      case 'number':
+        return this.compareNumber(parsedAnswer, expectedAnswer);
+      case 'numeric_tolerance':
+        return this.compareNumberWithTolerance(
+          parsedAnswer,
+          expectedAnswer,
+          options.tolerance ?? 0.01
+        );
+      case 'contains':
+        return this.compareContains(parsedAnswer, expectedAnswer);
+      case 'regex':
+        return this.compareRegex(parsedAnswer, expectedAnswer);
+      case 'normalized_string':
+        return this.compareNormalizedString(parsedAnswer, expectedAnswer);
+      default:
+        return this.compareExact(parsedAnswer, expectedAnswer);
+    }
+  }
+
+  private compareExact(
+    parsedAnswer: unknown,
+    expectedAnswer: string
+  ): { pass: boolean; reason?: string } {
+    const parsed = this.normalizeExact(parsedAnswer);
+    const expected = this.normalizeExact(expectedAnswer);
+
+    if (parsed === expected) {
+      return { pass: true };
+    }
+
+    return {
+      pass: false,
+      reason: `Expected "${expected}" but got "${parsed}"`
+    };
+  }
+
+  private compareNumber(
+    parsedAnswer: unknown,
+    expectedAnswer: string
+  ): { pass: boolean; reason?: string } {
+    const parsed = this.extractFirstNumber(parsedAnswer);
+    const expected = this.extractFirstNumber(expectedAnswer);
+
+    if (parsed === null || expected === null) {
+      return {
+        pass: false,
+        reason: `Numeric comparison failed: expected "${expectedAnswer}" got "${String(parsedAnswer)}"`
+      };
+    }
+
+    if (parsed === expected) {
+      return { pass: true };
+    }
+
+    return {
+      pass: false,
+      reason: `Expected number "${expected}" but got "${parsed}"`
+    };
+  }
+
+  private compareNumberWithTolerance(
+    parsedAnswer: unknown,
+    expectedAnswer: string,
+    tolerance: number
+  ): { pass: boolean; reason?: string } {
+    const parsed = this.extractFirstNumber(parsedAnswer);
+    const expected = this.extractFirstNumber(expectedAnswer);
+
+    if (parsed === null || expected === null) {
+      return {
+        pass: false,
+        reason: `Numeric tolerance comparison failed: expected "${expectedAnswer}" got "${String(parsedAnswer)}"`
+      };
+    }
+
+    const diff = Math.abs(parsed - expected);
+    if (diff <= tolerance) {
+      return { pass: true };
+    }
+
+    return {
+      pass: false,
+      reason: `Expected number within ±${tolerance} of "${expected}" but got "${parsed}" (diff ${diff.toFixed(4)})`
+    };
+  }
+
+  private compareContains(
+    parsedAnswer: unknown,
+    expectedAnswer: string
+  ): { pass: boolean; reason?: string } {
+    const parsed = this.normalizeExact(parsedAnswer);
+    const expected = this.normalizeExact(expectedAnswer);
+
+    if (!expected) {
+      return { pass: false, reason: 'Contains comparison failed: expected answer is empty' };
+    }
+
+    if (parsed.includes(expected)) {
+      return { pass: true };
+    }
+
+    return {
+      pass: false,
+      reason: `Expected output containing "${expected}" but got "${parsed}"`
+    };
+  }
+
+  private compareRegex(
+    parsedAnswer: unknown,
+    expectedAnswer: string
+  ): { pass: boolean; reason?: string } {
+    const parsed = String(parsedAnswer).trim();
+    const regex = this.buildRegex(expectedAnswer);
+
+    if (!regex) {
+      return { pass: false, reason: `Invalid regex pattern "${expectedAnswer}"` };
+    }
+
+    if (regex.test(parsed)) {
+      return { pass: true };
+    }
+
+    return {
+      pass: false,
+      reason: `Expected output matching regex "${expectedAnswer}" but got "${parsed}"`
+    };
+  }
+
+  private compareNormalizedString(
+    parsedAnswer: unknown,
+    expectedAnswer: string
+  ): { pass: boolean; reason?: string } {
+    const parsed = this.normalizeNaturalString(String(parsedAnswer));
+    const expected = this.normalizeNaturalString(expectedAnswer);
+
+    if (parsed === expected) {
+      return { pass: true };
+    }
+
+    return {
+      pass: false,
+      reason: `Expected normalized "${expected}" but got "${parsed}"`
+    };
+  }
+
+  private normalizeExact(value: unknown): string {
+    return String(value).trim().toLowerCase();
+  }
+
+  private normalizeNaturalString(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\b(a|an|the)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private extractFirstNumber(value: unknown): number | null {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    const match = String(value).replace(/,/g, '').match(/-?\d*\.?\d+/);
+    if (!match) return null;
+
+    const parsed = Number(match[0]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private buildRegex(pattern: string): RegExp | null {
+    const trimmed = pattern.trim();
+    const slashPattern = trimmed.match(/^\/(.+)\/([a-z]*)$/i);
+
+    try {
+      if (slashPattern) {
+        return new RegExp(slashPattern[1], slashPattern[2]);
+      }
+      return new RegExp(trimmed, 'i');
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Validate that a response has the required JSON structure
    * Checks for both reasoning and answer fields
@@ -242,7 +439,11 @@ export class JudgeLogic {
 /**
  * Quick evaluation helper for simple use cases
  */
-export function quickEvaluate(rawOutput: string, expectedAnswer: string): boolean {
+export function quickEvaluate(
+  rawOutput: string,
+  expectedAnswer: string,
+  options: JudgeEvaluateOptions = {}
+): boolean {
   const judge = new JudgeLogic();
-  return judge.evaluate(rawOutput, expectedAnswer).pass;
+  return judge.evaluate(rawOutput, expectedAnswer, options).pass;
 }
