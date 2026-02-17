@@ -104,9 +104,9 @@ export const useBattleStore = defineStore('battle', () => {
       run: index + 1,
       model_id: modelId,
       output: result.rawOutput,
-      ttft_ms: null,
-      total_time_ms: result.durationMs,
-      char_timestamps: [],
+      ttft_ms: result.ttftMs ?? null,
+      total_time_ms: result.totalTimeMs ?? result.durationMs,
+      char_timestamps: result.charTimestamps ?? [],
       event_log: [
         {
           type: 'round_complete',
@@ -227,6 +227,8 @@ export const useBattleStore = defineStore('battle', () => {
       
       const rawOutput = systemStore.outputStream;
       const durationMs = Date.now() - startTime;
+      const timing = systemStore.lastInferenceTimings;
+      const totalTimeMs = timing.totalTimeMs ?? durationMs;
 
       // Judge the result
       const judge = new JudgeLogic();
@@ -243,7 +245,10 @@ export const useBattleStore = defineStore('battle', () => {
         rawOutput,
         parsedAnswer: judgment.parsedAnswer,
         failureReason: judgment.reason,
-        durationMs
+        durationMs,
+        ttftMs: timing.ttftMs ?? null,
+        totalTimeMs,
+        charTimestamps: timing.charTimestamps ?? [],
       };
 
       session.value.results.push(result);

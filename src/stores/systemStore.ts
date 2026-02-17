@@ -26,6 +26,15 @@ export const useSystemStore = defineStore('system', () => {
   const loadingText = ref('');
   const isModelReady = ref(false);
   const outputStream = ref('');
+  const lastInferenceTimings = ref<{
+    ttftMs: number | null;
+    totalTimeMs: number | null;
+    charTimestamps: number[];
+  }>({
+    ttftMs: null,
+    totalTimeMs: null,
+    charTimestamps: [],
+  });
 
   // Warden State
   const isPanic = ref(false);
@@ -105,6 +114,19 @@ export const useSystemStore = defineStore('system', () => {
     outputStream.value = ""; // Reset
     const engine = LLMEngine.getInstance();
     const guillotine = new StreamGuillotine();
+    const now = () =>
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+    const startTime = now();
+    let firstChunkAt: number | null = null;
+    let totalChars = 0;
+    const charTimestamps: number[] = [];
+    lastInferenceTimings.value = {
+      ttftMs: null,
+      totalTimeMs: null,
+      charTimestamps: [],
+    };
     
     try {
       await engine.generate(prompt, (chunk) => {
@@ -117,7 +139,17 @@ export const useSystemStore = defineStore('system', () => {
           engine.interruptGenerate();
           throw new Error("WARDEN_VIOLATION"); // Abort generation
         }
+        const chunkTime = now();
+        if (firstChunkAt === null) {
+          firstChunkAt = chunkTime;
+        }
         outputStream.value += chunk;
+        for (let i = 0; i < chunk.length; i++) {
+          totalChars += 1;
+          if (totalChars % 50 === 0) {
+            charTimestamps.push(Math.round(chunkTime));
+          }
+        }
       });
     } catch (e: any) {
       if (e.message === "WARDEN_VIOLATION") {
@@ -126,6 +158,13 @@ export const useSystemStore = defineStore('system', () => {
         outputStream.value += "\n[ERROR] Generation failed.";
         console.error(e);
       }
+    } finally {
+      const endTime = now();
+      lastInferenceTimings.value = {
+        ttftMs: firstChunkAt === null ? null : Math.round(firstChunkAt - startTime),
+        totalTimeMs: Math.round(endTime - startTime),
+        charTimestamps,
+      };
     }
   }
 
@@ -136,6 +175,7 @@ export const useSystemStore = defineStore('system', () => {
     loadingText,
     isModelReady,
     outputStream,
+    lastInferenceTimings,
     isPanic,
     panicReason,
     updateStatus,

@@ -60,6 +60,12 @@ export interface RoundResult {
   failureReason?: string;
   /** Time taken for this round (ms) */
   durationMs: number;
+  /** Time to first token (ms) */
+  ttftMs?: number | null;
+  /** Total generation time (ms) */
+  totalTimeMs?: number | null;
+  /** Sampled timestamps for every 50th char (ms since epoch/perf) */
+  charTimestamps?: number[];
 }
 
 export type BattleStatus = 'IDLE' | 'LOADING' | 'FIGHTING' | 'ROUND_COMPLETE' | 'COMPLETE';
