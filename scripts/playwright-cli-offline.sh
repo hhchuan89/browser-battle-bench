@@ -15,6 +15,25 @@ mkdir -p "${PLAYWRIGHT_DAEMON_SESSION_DIR}" "${PLAYWRIGHT_DAEMON_SOCKETS_DIR}"
 PWCLI_JS="$(ls -t "$HOME"/.npm/_npx/*/node_modules/@playwright/cli/playwright-cli.js 2>/dev/null | head -n 1 || true)"
 
 PW_BIN="${PROJECT_ROOT}/node_modules/.bin/playwright"
+ensure_local_playwright() {
+  if [[ -x "${PW_BIN}" ]]; then
+    return 0
+  fi
+
+  if [[ -f "${PROJECT_ROOT}/package-lock.json" ]] && command -v npm >/dev/null 2>&1; then
+    (
+      cd "${PROJECT_ROOT}"
+      npm ci --prefer-offline --no-audit --no-fund
+    ) >/dev/null 2>&1 || true
+  fi
+
+  [[ -x "${PW_BIN}" ]]
+}
+
+if [[ "${1:-}" == "test" ]]; then
+  ensure_local_playwright || true
+fi
+
 if [[ -x "${PW_BIN}" ]]; then
   exec "${PW_BIN}" "$@"
 fi
