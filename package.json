@@ -20,7 +20,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@playwright/cli": "^1.55.0",
     "@playwright/test": "^1.55.0",
     "@types/node": "^25.2.3",
     "@vitejs/plugin-vue": "^5.0.4",

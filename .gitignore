@@ -140,3 +140,8 @@ vite.config.ts.timestamp-*
 
 # Plan-job directory (local planning files, not for GitHub)
 plan-job/
+
+# Local OS / Playwright runtime artifacts
+.DS_Store
+.playwright-daemon/
+.playwright-sockets/
