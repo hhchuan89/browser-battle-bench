@@ -36,10 +36,10 @@ test.describe('BBB smoke routes', () => {
     ).toBeVisible()
   })
 
-  test('leaderboard renders placeholder copy', async ({ page }) => {
+  test('leaderboard renders local leaderboard panel', async ({ page }) => {
     await page.goto('/leaderboard')
-    await expect(page.getByRole('heading', { name: /Leaderboard/i })).toBeVisible()
-    await expect(page.getByText(/coming soon/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /^🏆\s*Leaderboard$/i })).toBeVisible()
+    await expect(page.getByText(/Local Leaderboard/i)).toBeVisible()
   })
 
   test('history renders run-history panel', async ({ page }) => {
