@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { z } from 'zod'
 import type { StreamValidationResult } from './useStreamValidator'
+import { useZodValidator } from './useZodValidator'
 
 export interface ScoreBreakdown {
   formatCompliance: number      // 35%
@@ -54,6 +55,7 @@ export interface UseScorerReturn {
 export function useScorer(options: UseScorerOptions = {}): UseScorerReturn {
   const weights = ref<ScoreBreakdown>({ ...DEFAULT_WEIGHTS, ...options.weights })
   const lastScores = ref<ScoreBreakdown | null>(null)
+  const { safeParseJson, getRequiredFields, getMissingFields, getExtraFields } = useZodValidator()
 
   /**
    * Calculate format compliance score
@@ -85,25 +87,14 @@ export function useScorer(options: UseScorerOptions = {}): UseScorerReturn {
     responseText: string,
     schema: z.ZodSchema
   ): number => {
-    try {
-      const parsed = JSON.parse(responseText)
-      
-      // Get required fields from schema
-      const schemaObj = schema as z.ZodObject<any>
-      const requiredFields = schemaObj.shape ? Object.keys(schemaObj.shape).filter(
-        key => schemaObj.shape[key].isOptional?.() !== true
-      ) : []
-      
-      if (requiredFields.length === 0) return 100
-      
-      const presentFields = requiredFields.filter(field => 
-        parsed[field] !== undefined && parsed[field] !== null
-      )
-      
-      return (presentFields.length / requiredFields.length) * 100
-    } catch {
-      return 0 // Can't parse JSON
-    }
+    const parsed = safeParseJson(responseText)
+    if (!parsed.ok) return 0
+
+    const requiredFields = getRequiredFields(schema)
+    if (requiredFields.length === 0) return 100
+
+    const missingFields = getMissingFields(parsed.value, schema)
+    return ((requiredFields.length - missingFields.length) / requiredFields.length) * 100
   }
 
   /**
@@ -124,25 +115,13 @@ export function useScorer(options: UseScorerOptions = {}): UseScorerReturn {
     responseText: string,
     schema: z.ZodSchema
   ): number => {
-    try {
-      const parsed = JSON.parse(responseText)
-      const schemaObj = schema as z.ZodObject<any>
-      
-      if (!schemaObj.shape) return 100
-      
-      const allowedFields = Object.keys(schemaObj.shape)
-      const actualFields = Object.keys(parsed)
-      
-      // Check for extra fields
-      const extraFields = actualFields.filter(field => !allowedFields.includes(field))
-      
-      if (extraFields.length === 0) return 100
-      
-      // Penalty for each extra field
-      return Math.max(0, 100 - (extraFields.length * 25))
-    } catch {
-      return 0
-    }
+    const parsed = safeParseJson(responseText)
+    if (!parsed.ok) return 0
+
+    const extraFields = getExtraFields(parsed.value, schema)
+    if (extraFields.length === 0) return 100
+
+    return Math.max(0, 100 - (extraFields.length * 25))
   }
 
   /**
