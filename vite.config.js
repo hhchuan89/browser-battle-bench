@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import { resolve } from 'path';
 // https://vitejs.dev/config/
@@ -44,6 +44,15 @@ export default defineConfig(function (_a) {
         preview: {
             port: 4173,
             host: true,
+        },
+        test: {
+            environment: 'node',
+            globals: true,
+            include: ['tests/unit/**/*.spec.ts'],
+            coverage: {
+                provider: 'v8',
+                reporter: ['text', 'html'],
+            },
         },
     });
 });

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
+    "test:unit": "vitest run",
     "test:ui": "./scripts/playwright-cli-offline.sh test"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.9.3",
     "vite": "^5.1.4",
+    "vitest": "^1.6.1",
     "vue-tsc": "^3.2.4"
   }
 }
