@@ -19,6 +19,7 @@ import { JudgeLogic } from '../services/warden/JudgeLogic';
 import { saveRunHistoryEntry } from '@/lib/run-history';
 import { TEST_SUITE_VERSION } from '@/data/suite-version';
 import { createBBBReportBundle, serializeBBBReportBundle } from '@/lib/report-contract';
+import { loadHardwareSnapshot } from '@/lib/hardware-snapshot';
 
 export const useBattleStore = defineStore('battle', () => {
   // ========== STATE ==========
@@ -123,6 +124,7 @@ export const useBattleStore = defineStore('battle', () => {
       return null;
     }
 
+    const hardwareSnapshot = loadHardwareSnapshot();
     const modelId = resolveSelectedModelId();
     const scores = session.value.results.map((result) => result.score);
     const totalRounds = currentScenario.value.totalChallenges;
@@ -153,9 +155,14 @@ export const useBattleStore = defineStore('battle', () => {
           },
         },
       },
-      isMobile: typeof navigator !== 'undefined'
+      isMobile: hardwareSnapshot?.is_mobile ?? (typeof navigator !== 'undefined'
         ? /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-        : false,
+        : false),
+      hardware: hardwareSnapshot ? {
+        tier: hardwareSnapshot.tier,
+        gpu: hardwareSnapshot.gpu,
+        estimated_vram_gb: hardwareSnapshot.estimated_vram_gb,
+      } : undefined,
     });
 
     return latestReportBundle.value;

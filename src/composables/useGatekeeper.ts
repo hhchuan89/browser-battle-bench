@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { saveHardwareSnapshot } from '@/lib/hardware-snapshot'
 
 export type HardwareTier = 'S' | 'A' | 'B' | 'M' | 'F'
 
@@ -87,6 +88,13 @@ export function useGatekeeper() {
     }
     
     result.value = { tier, hasWebGPU, gpuName, vramGb, isMobile, ollamaAvailable, ollamaModels }
+    saveHardwareSnapshot({
+      tier,
+      gpu: gpuName,
+      estimated_vram_gb: vramGb,
+      is_mobile: isMobile,
+      timestamp: new Date().toISOString()
+    })
     isScanning.value = false
   }
   
