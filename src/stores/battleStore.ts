@@ -13,9 +13,12 @@ import type {
   BattleSession, 
   RoundResult
 } from '../types/battle';
+import type { BBBReportBundle } from '@/types/report';
 import { useSystemStore } from './systemStore';
 import { JudgeLogic } from '../services/warden/JudgeLogic';
 import { saveRunHistoryEntry } from '@/lib/run-history';
+import { TEST_SUITE_VERSION } from '@/data/suite-version';
+import { createBBBReportBundle, serializeBBBReportBundle } from '@/lib/report-contract';
 
 export const useBattleStore = defineStore('battle', () => {
   // ========== STATE ==========
@@ -32,6 +35,7 @@ export const useBattleStore = defineStore('battle', () => {
   const currentScenario = ref<BattleScenario | null>(null);
   const isProcessingRound = ref(false);
   const battleStartedAt = ref<number | null>(null);
+  const latestReportBundle = ref<BBBReportBundle | null>(null);
 
   // ========== GETTERS ==========
   
@@ -59,6 +63,107 @@ export const useBattleStore = defineStore('battle', () => {
     const systemStore = useSystemStore();
     return systemStore.isModelReady && session.value.status === 'IDLE';
   });
+
+  const getMedian = (scores: number[]): number => {
+    if (scores.length === 0) return 0;
+    const sorted = [...scores].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) {
+      return (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+    return sorted[mid];
+  };
+
+  const getVariance = (scores: number[]): number => {
+    if (scores.length === 0) return 0;
+    const mean = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const squaredDiff = scores.map((score) => (score - mean) ** 2);
+    return squaredDiff.reduce((sum, diff) => sum + diff, 0) / scores.length;
+  };
+
+  const resolveSelectedModelId = (): string => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem('bbb:selectedModel') || 'unknown-model';
+    }
+    return 'unknown-model';
+  };
+
+  const createBattleRawOutputs = (): Array<{
+    test_id: string;
+    run: number;
+    model_id: string;
+    output: string;
+    total_time_ms: number;
+    event_log: Array<Record<string, unknown>>;
+  }> => {
+    const modelId = resolveSelectedModelId();
+    return session.value.results.map((result, index) => ({
+      test_id: result.challengeId,
+      run: index + 1,
+      model_id: modelId,
+      output: result.rawOutput,
+      total_time_ms: result.durationMs,
+      event_log: [
+        {
+          type: 'round_complete',
+          passed: result.passed,
+          failure_reason: result.failureReason || null,
+        },
+      ],
+    }));
+  };
+
+  const generateReportBundle = async (): Promise<BBBReportBundle | null> => {
+    if (!currentScenario.value || session.value.results.length === 0) {
+      latestReportBundle.value = null;
+      return null;
+    }
+
+    const modelId = resolveSelectedModelId();
+    const scores = session.value.results.map((result) => result.score);
+    const totalRounds = currentScenario.value.totalChallenges;
+    const passedRounds = session.value.results.filter((result) => result.passed).length;
+    const passRate = totalRounds > 0 ? (passedRounds / totalRounds) * 100 : 0;
+    const totalScorePct = session.value.maxPossibleScore > 0
+      ? (session.value.totalScore / session.value.maxPossibleScore) * 100
+      : 0;
+
+    latestReportBundle.value = await createBBBReportBundle({
+      modelId,
+      modelName: modelId,
+      testSuiteVersion: TEST_SUITE_VERSION,
+      totalScore: Math.round(totalScorePct * 100) / 100,
+      rawOutputs: createBattleRawOutputs(),
+      phases: {
+        logic_traps: {
+          runs: scores.length,
+          scores,
+          median: Math.round(getMedian(scores) * 100) / 100,
+          variance: Math.round(getVariance(scores) * 100) / 100,
+          details: {
+            scenario_id: currentScenario.value.id,
+            scenario_name: currentScenario.value.name,
+            passed_rounds: passedRounds,
+            total_rounds: totalRounds,
+            pass_rate: Math.round(passRate * 100) / 100,
+          },
+        },
+      },
+      isMobile: typeof navigator !== 'undefined'
+        ? /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        : false,
+    });
+
+    return latestReportBundle.value;
+  };
+
+  const exportLatestReportBundle = (): {
+    reportJson: string;
+    rawOutputsJson: string;
+  } | null => {
+    if (!latestReportBundle.value) return null;
+    return serializeBBBReportBundle(latestReportBundle.value);
+  };
 
   // ========== ACTIONS ==========
 
@@ -206,6 +311,8 @@ export const useBattleStore = defineStore('battle', () => {
       } catch (error) {
         console.warn('Failed to persist battle run history', error);
       }
+
+      void generateReportBundle();
     }
 
     session.value.status = 'COMPLETE';
@@ -227,6 +334,7 @@ export const useBattleStore = defineStore('battle', () => {
     currentScenario.value = null;
     isProcessingRound.value = false;
     battleStartedAt.value = null;
+    latestReportBundle.value = null;
   }
 
   /**
@@ -260,6 +368,9 @@ export const useBattleStore = defineStore('battle', () => {
     nextRound,
     resetBattle,
     finishBattle,
+    generateReportBundle,
+    exportLatestReportBundle,
+    latestReportBundle,
     getRoundResult,
     getChallengeResult
   };

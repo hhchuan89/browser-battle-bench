@@ -17,3 +17,6 @@ export * from './battle';
 
 // Re-export endurance types
 export * from './endurance';
+
+// Re-export report types
+export * from './report';

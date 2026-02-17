@@ -214,6 +214,7 @@
           
           <div class="modal-action justify-center">
             <button class="btn btn-primary" @click="showResults = false">Close</button>
+            <button class="btn btn-accent" @click="downloadBBBReportBundle">Download BBB Report</button>
             <button class="btn btn-secondary" @click="resetAndStart">Battle Again</button>
           </div>
         </div>
@@ -346,6 +347,26 @@ function getChallengeDescription(challengeId: string): string {
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function triggerDownload(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadBBBReportBundle() {
+  const existingBundle = battleStore.exportLatestReportBundle();
+  const bundle = existingBundle ?? (await battleStore.generateReportBundle(), battleStore.exportLatestReportBundle());
+  if (!bundle) return;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  triggerDownload(`bbb-report-${timestamp}.json`, bundle.reportJson);
+  triggerDownload(`bbb-raw-outputs-${timestamp}.json`, bundle.rawOutputsJson);
 }
 
 // Watch for completion to show results
