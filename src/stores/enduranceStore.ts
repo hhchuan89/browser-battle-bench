@@ -22,6 +22,7 @@ import {
   calculateLeakRate,
   getMemoryWarningLevel
 } from '../services/performance/MemoryMonitor';
+import { saveRunHistoryEntry } from '@/lib/run-history';
 
 export const useEnduranceStore = defineStore('endurance', () => {
   // ========== STATE ==========
@@ -400,6 +401,28 @@ export const useEnduranceStore = defineStore('endurance', () => {
     const report = generateReport();
     addLog(`Verdict: ${report.verdict}`);
     addLog(`Pass rate: ${report.passRate.toFixed(1)}%`);
+
+    if (currentScenario.value) {
+      try {
+        saveRunHistoryEntry({
+          id: `stress-${Date.now()}`,
+          mode: 'stress',
+          scenarioId: currentScenario.value.id,
+          scenarioName: report.scenarioName,
+          startedAt: session.value.startTime
+            ? new Date(session.value.startTime).toISOString()
+            : report.timestamp,
+          completedAt: report.timestamp,
+          durationMs: report.totalTimeMs,
+          passRate: Math.round(report.passRate * 100) / 100,
+          totalRounds: report.totalRounds,
+          passedRounds: report.passedRounds,
+          verdict: report.verdict
+        });
+      } catch (error) {
+        console.warn('Failed to persist endurance run history', error);
+      }
+    }
   }
 
   /**

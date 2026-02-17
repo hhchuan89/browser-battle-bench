@@ -15,6 +15,7 @@ import type {
 } from '../types/battle';
 import { useSystemStore } from './systemStore';
 import { JudgeLogic } from '../services/warden/JudgeLogic';
+import { saveRunHistoryEntry } from '@/lib/run-history';
 
 export const useBattleStore = defineStore('battle', () => {
   // ========== STATE ==========
@@ -30,6 +31,7 @@ export const useBattleStore = defineStore('battle', () => {
 
   const currentScenario = ref<BattleScenario | null>(null);
   const isProcessingRound = ref(false);
+  const battleStartedAt = ref<number | null>(null);
 
   // ========== GETTERS ==========
   
@@ -81,6 +83,7 @@ export const useBattleStore = defineStore('battle', () => {
       totalScore: 0,
       maxPossibleScore: scenario.totalChallenges * 100
     };
+    battleStartedAt.value = Date.now();
 
     // Start first round
     await nextRound();
@@ -173,6 +176,35 @@ export const useBattleStore = defineStore('battle', () => {
    * Mark battle as complete
    */
   function finishBattle() {
+    if (currentScenario.value) {
+      const totalRounds = currentScenario.value.totalChallenges;
+      const passedRounds = session.value.results.filter(r => r.passed).length;
+      const passRate = totalRounds > 0 ? (passedRounds / totalRounds) * 100 : 0;
+      const scorePct = session.value.maxPossibleScore > 0
+        ? (session.value.totalScore / session.value.maxPossibleScore) * 100
+        : 0;
+      const durationMs = session.value.results.reduce((sum, result) => sum + result.durationMs, 0);
+      const completedAt = new Date().toISOString();
+
+      try {
+        saveRunHistoryEntry({
+          id: `gauntlet-${Date.now()}`,
+          mode: 'gauntlet',
+          scenarioId: currentScenario.value.id,
+          scenarioName: currentScenario.value.name,
+          startedAt: battleStartedAt.value ? new Date(battleStartedAt.value).toISOString() : completedAt,
+          completedAt,
+          durationMs,
+          passRate: Math.round(passRate * 100) / 100,
+          totalRounds,
+          passedRounds,
+          scorePct: Math.round(scorePct * 100) / 100
+        });
+      } catch (error) {
+        console.warn('Failed to persist battle run history', error);
+      }
+    }
+
     session.value.status = 'COMPLETE';
     isProcessingRound.value = false;
   }
@@ -191,6 +223,7 @@ export const useBattleStore = defineStore('battle', () => {
     };
     currentScenario.value = null;
     isProcessingRound.value = false;
+    battleStartedAt.value = null;
   }
 
   /**
