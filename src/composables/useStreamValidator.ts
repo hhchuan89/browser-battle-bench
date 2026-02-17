@@ -90,12 +90,19 @@ export function useStreamValidator(
     charTimestamps: charTimestamps.value
   }))
 
+  const calculateJsonSpanLength = (): number => {
+    if (!accumulated.value) return 0
+    const firstBrace = accumulated.value.indexOf('{')
+    const lastBrace = accumulated.value.lastIndexOf('}')
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return 0
+    return lastBrace - firstBrace + 1
+  }
+
   const calculateYapRate = (): number => {
     if (totalChars.value === 0) return 0
-    // Yap = total chars - valid JSON chars / total chars
-    // Simplified: return percentage of valid content
-    const validChars = accumulated.value.length
-    return Math.max(0, 1 - (validChars / Math.max(1, totalChars.value))) * 100
+    const jsonSpanLength = calculateJsonSpanLength()
+    const yapChars = Math.max(0, totalChars.value - jsonSpanLength)
+    return Math.min(100, (yapChars / totalChars.value) * 100)
   }
 
   const reset = () => {

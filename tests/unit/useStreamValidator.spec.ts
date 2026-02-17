@@ -37,4 +37,18 @@ describe('useStreamValidator', () => {
     expect(result.charTimestamps[0].index).toBe(0)
     expect(result.charTimestamps[1].index).toBe(50)
   })
+
+  it('reports zero yap rate for pure JSON', () => {
+    const validator = useStreamValidator({ whitespaceBufferSize: 1 })
+    const result = validator.validateStream('{"ok":true}')
+
+    expect(result.yapRate).toBe(0)
+  })
+
+  it('reports non-zero yap rate for mixed output', () => {
+    const validator = useStreamValidator({ whitespaceBufferSize: 1 })
+    const result = validator.validateStream('Sure! {"ok":true} Thanks!')
+
+    expect(result.yapRate).toBeGreaterThan(0)
+  })
 })
