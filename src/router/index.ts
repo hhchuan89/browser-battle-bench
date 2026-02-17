@@ -7,6 +7,7 @@ const routes = [
   { path: '/stress', name: 'stress', component: () => import('../views/StressTest.vue') },
   { path: '/history', name: 'history', component: () => import('../views/History.vue') },
   { path: '/leaderboard', name: 'leaderboard', component: () => import('../views/Leaderboard.vue') },
+  { path: '/diagnostics', name: 'diagnostics', component: () => import('../views/Diagnostics.vue') },
 ]
 
 export const router = createRouter({

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useWebLLM } from '@/composables/useWebLLM'
 import { useStreamValidator } from '@/composables/useStreamValidator'
 import { useScorer } from '@/composables/useScorer'
@@ -27,8 +27,7 @@ const {
   // isLoading, 
   progress, 
   // error: llmError,
-  initializeEngine, 
-  // loadModel, 
+  loadModel,
   generate 
 } = useWebLLM()
 
@@ -47,6 +46,15 @@ const availableModels = [
   { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC', name: 'Llama 3.1 8B', tier: 'pro' },
 ]
 
+const storedModel = localStorage.getItem('bbb:selectedModel')
+if (storedModel) {
+  selectedModel.value = storedModel
+}
+
+watch(selectedModel, (value) => {
+  localStorage.setItem('bbb:selectedModel', value)
+})
+
 // Start battle
 const startBattle = async () => {
   error.value = null
@@ -58,7 +66,7 @@ const startBattle = async () => {
 
   try {
     // Initialize engine with selected model
-    await initializeEngine()
+    await loadModel(selectedModel.value)
     battleStatus.value = 'streaming'
 
     // Build prompt
@@ -70,17 +78,27 @@ const startBattle = async () => {
 
     const response = await generate(fullPrompt, {
       max_tokens: 512,
-      temperature: 0.7
+      temperature: 0.7,
+      onChunk: (chunk, accumulated) => {
+        if (firstTokenTime.value === null) {
+          firstTokenTime.value = Date.now() - startTime
+        }
+        fullResponse = accumulated
+        outputText.value = accumulated
+        validateStream(chunk)
+      }
     })
 
     fullResponse = response
     outputText.value = response
-    firstTokenTime.value = Date.now() - startTime
+    if (firstTokenTime.value === null) {
+      firstTokenTime.value = Date.now() - startTime
+    }
 
     battleStatus.value = 'scoring'
 
     // Validate and score
-    const validation = validateStream(fullResponse)
+    const validation = validateStream('')
     
     // Parse schema for scoring (using strict mode for security)
     const schemaObj = z.object(selectedSchema.value.schema as any).strict()
@@ -279,7 +297,7 @@ const validationState = computed(() => validatorResult.value)
 
       <!-- Back Link -->
       <div class="mt-8 text-center">
-        <a href="/" class="text-green-500 hover:underline">← Back to Home</a>
+        <router-link to="/" class="text-green-500 hover:underline">← Back to Home</router-link>
       </div>
     </div>
   </div>

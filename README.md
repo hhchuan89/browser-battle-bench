@@ -119,6 +119,7 @@ browser-battle-bench/
 | `npm run dev` | Start development server with hot reload |
 | `npm run build` | Build for production (includes type checking) |
 | `npm run preview` | Preview production build locally |
+| `npm run test:ui` | Run Playwright UI smoke tests (requires local Playwright deps) |
 
 ## 🔧 Configuration
 
@@ -150,6 +151,20 @@ export default defineConfig({
 ```
 
 ## 🧪 Testing Modes
+
+### UI Smoke Tests
+Run the minimal Playwright smoke suite against a running dev server.
+
+```bash
+# In one terminal
+npm run dev
+
+# In another terminal (uses local Playwright deps only)
+npm run test:ui
+
+# Optional: point at a different target
+BBB_BASE_URL=https://browserbattlebench.vercel.app npm run test:ui
+```
 
 ### Battle Arena
 Tests model's ability to:

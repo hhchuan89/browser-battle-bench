@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useGatekeeper } from '../composables/useGatekeeper'
 
 const { isScanning, result, scan, tierLabel } = useGatekeeper()
 const scanComplete = ref(false)
+const router = useRouter()
+const isDev = import.meta.env.DEV
 
 onMounted(() => {
   // Auto-scan on mount
@@ -14,7 +17,7 @@ onMounted(() => {
 
 const startBattle = () => {
   // Navigate to arena
-  window.location.href = '/arena'
+  router.push('/arena')
 }
 </script>
 
@@ -106,12 +109,27 @@ const startBattle = () => {
         
         <!-- Quick Links -->
         <div class="grid grid-cols-2 gap-4 text-sm">
-          <a href="/gauntlet" class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors">
+          <router-link
+            to="/gauntlet"
+            class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors"
+          >
             🥊 Gauntlet Mode
-          </a>
-          <a href="/leaderboard" class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors">
+          </router-link>
+          <router-link
+            to="/leaderboard"
+            class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors"
+          >
             🏆 Leaderboard
-          </a>
+          </router-link>
+        </div>
+
+        <div v-if="isDev" class="mt-4 text-sm">
+          <router-link
+            to="/diagnostics"
+            class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors"
+          >
+            🧪 Diagnostics (Dev)
+          </router-link>
         </div>
       </div>
     </div>
