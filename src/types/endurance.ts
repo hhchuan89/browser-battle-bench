@@ -41,6 +41,17 @@ export interface ConcurrentResult {
   error?: string;
 }
 
+export interface EndurancePassOutcome {
+  /** Round number */
+  round: number;
+  /** Unique record ID for this evaluation */
+  key: string;
+  /** Pass/fail status from JudgeLogic */
+  success: boolean;
+  /** Optional failure reason */
+  reason?: string;
+}
+
 export interface EnduranceScenario {
   /** Unique identifier */
   id: string;
@@ -77,6 +88,8 @@ export interface EnduranceSession {
   latencyLog: LatencyRecord[];
   /** Concurrent results (for concurrent tests) */
   concurrentResults: ConcurrentResult[];
+  /** Pass/fail outcomes captured from JudgeLogic */
+  passOutcomes: EndurancePassOutcome[];
   /** Peak memory observed */
   peakMemory: number;
   /** Baseline memory at start */

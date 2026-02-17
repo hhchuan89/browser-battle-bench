@@ -25,6 +25,11 @@ const leakRate = computed(() =>
   calculateLeakRate(enduranceStore.session.memorySnapshots)
 );
 
+const finalReport = computed(() => {
+  if (!enduranceStore.isComplete) return null;
+  return enduranceStore.generateReport();
+});
+
 const canStart = computed(() => 
   systemStore.isModelReady && enduranceStore.session.status === 'IDLE'
 );
@@ -369,23 +374,26 @@ function getLatencyBarColor(durationMs: number): string {
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <div class="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                 <div class="text-xs text-gray-400">Verdict</div>
-                <div class="font-bold text-lg" :class="getVerdictColor(enduranceStore.generateReport().verdict)">
-                  {{ enduranceStore.generateReport().verdict }}
+                <div class="font-bold text-lg" :class="finalReport ? getVerdictColor(finalReport.verdict) : 'text-gray-500'">
+                  {{ finalReport?.verdict || 'N/A' }}
                 </div>
               </div>
               <div class="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                 <div class="text-xs text-gray-400">Pass Rate</div>
                 <div class="font-bold text-lg text-white">
                   <CountUp 
-                    :value="Math.round(enduranceStore.generateReport().passRate)" 
+                    :value="Math.round(finalReport?.passRate || 0)" 
                     suffix="%"
                   />
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  {{ finalReport ? `${finalReport.passedRounds} / ${finalReport.totalRounds}` : '0 / 0' }}
                 </div>
               </div>
               <div class="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
                 <div class="text-xs text-gray-400">Total Time</div>
                 <div class="font-bold text-lg text-white">
-                  {{ (enduranceStore.generateReport().totalTimeMs / 1000).toFixed(1) }}s
+                  {{ finalReport ? `${(finalReport.totalTimeMs / 1000).toFixed(1)}s` : '0.0s' }}
                 </div>
               </div>
               <div class="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">

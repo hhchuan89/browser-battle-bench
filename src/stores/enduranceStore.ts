@@ -13,6 +13,7 @@ import type {
   MemorySnapshot,
   LatencyRecord,
   ConcurrentResult,
+  EndurancePassOutcome,
   EnduranceReport
 } from '../types/endurance';
 import { useSystemStore } from './systemStore';
@@ -35,6 +36,7 @@ export const useEnduranceStore = defineStore('endurance', () => {
     memorySnapshots: [],
     latencyLog: [],
     concurrentResults: [],
+    passOutcomes: [],
     peakMemory: 0,
     baselineMemory: 0,
     averageLatency: 0
@@ -102,6 +104,7 @@ export const useEnduranceStore = defineStore('endurance', () => {
       memorySnapshots: [],
       latencyLog: [],
       concurrentResults: [],
+      passOutcomes: [],
       peakMemory: baseline,
       baselineMemory: baseline,
       averageLatency: 0,
@@ -189,6 +192,13 @@ export const useEnduranceStore = defineStore('endurance', () => {
       const rawOutput = systemStore.outputStream;
       const judge = new JudgeLogic();
       const judgment = judge.evaluate(rawOutput, currentScenario.value.expectedAnswer);
+      const passOutcome: EndurancePassOutcome = {
+        round: roundNum,
+        key: `seq-${roundNum}`,
+        success: judgment.pass,
+        reason: judgment.pass ? undefined : judgment.reason
+      };
+      session.value.passOutcomes.push(passOutcome);
       
       // Record memory after
       const memAfter = getCurrentMemory();
@@ -224,6 +234,17 @@ export const useEnduranceStore = defineStore('endurance', () => {
       addLog(`[${roundNum}] ${status} ${durationMs}ms${memAfter ? ` | ${memAfter.used}MB` : ''}`);
       
     } catch (error: any) {
+      const hasRoundOutcome = session.value.passOutcomes.some(
+        outcome => outcome.key === `seq-${roundNum}`
+      );
+      if (!hasRoundOutcome) {
+        session.value.passOutcomes.push({
+          round: roundNum,
+          key: `seq-${roundNum}`,
+          success: false,
+          reason: error.message
+        });
+      }
       addLog(`[${roundNum}] ERROR - ${error.message}`);
       throw error;
     }
@@ -260,6 +281,13 @@ export const useEnduranceStore = defineStore('endurance', () => {
     
     // Store results
     session.value.concurrentResults.push(...results);
+    const outcomeRecords: EndurancePassOutcome[] = results.map(result => ({
+      round: roundNum,
+      key: result.requestId,
+      success: result.success,
+      reason: result.success ? undefined : result.error
+    }));
+    session.value.passOutcomes.push(...outcomeRecords);
     
     // Record latency for the batch (max duration)
     const maxDuration = Math.max(...results.map(r => r.durationMs), 0);
@@ -447,21 +475,33 @@ export const useEnduranceStore = defineStore('endurance', () => {
     const endTime = session.value.endTime || Date.now();
     const totalTimeMs = endTime - startTime;
     
-    // Calculate pass rate
-    let totalTests = 0;
-    let passedTests = 0;
-    
-    if (scenario.type === 'sequential') {
-      // For sequential, use latency log as proxy
-      totalTests = session.value.latencyLog.length;
-      passedTests = session.value.latencyLog.length; // Assume pass if no error
-    } else {
-      // For concurrent, count actual results
-      totalTests = session.value.concurrentResults.length;
-      passedTests = session.value.concurrentResults.filter(r => r.success).length;
+    // Calculate pass rate by round from actual Judge outcomes.
+    // For concurrent rounds, the round passes only if all requests in that round pass.
+    const outcomesByRound = new Map<number, EndurancePassOutcome[]>();
+    for (const outcome of session.value.passOutcomes) {
+      const roundOutcomes = outcomesByRound.get(outcome.round) || [];
+      roundOutcomes.push(outcome);
+      outcomesByRound.set(outcome.round, roundOutcomes);
+    }
+
+    let totalEvaluatedRounds = outcomesByRound.size;
+    let passedEvaluatedRounds = [...outcomesByRound.values()].filter(
+      roundOutcomes => roundOutcomes.length > 0 && roundOutcomes.every(outcome => outcome.success)
+    ).length;
+
+    if (totalEvaluatedRounds === 0) {
+      // Backward-compatible fallback for sessions created before passOutcomes tracking
+      totalEvaluatedRounds = scenario.type === 'sequential'
+        ? session.value.latencyLog.length
+        : session.value.concurrentResults.length;
+      passedEvaluatedRounds = scenario.type === 'sequential'
+        ? session.value.latencyLog.length
+        : session.value.concurrentResults.filter(result => result.success).length;
     }
     
-    const passRate = totalTests > 0 ? (passedTests / totalTests) * 100 : 0;
+    const passRate = totalEvaluatedRounds > 0
+      ? (passedEvaluatedRounds / totalEvaluatedRounds) * 100
+      : 0;
     
     // Calculate leak rate
     const leakRate = calculateLeakRate(session.value.memorySnapshots);
@@ -485,8 +525,8 @@ export const useEnduranceStore = defineStore('endurance', () => {
       leakRateMBPerRound: leakRate,
       averageLatencyMs: session.value.averageLatency,
       passRate,
-      totalRounds: session.value.totalRounds,
-      passedRounds: passedTests,
+      totalRounds: totalEvaluatedRounds,
+      passedRounds: passedEvaluatedRounds,
       verdict,
       timestamp: new Date().toISOString()
     };
@@ -521,6 +561,7 @@ export const useEnduranceStore = defineStore('endurance', () => {
       memorySnapshots: [],
       latencyLog: [],
       concurrentResults: [],
+      passOutcomes: [],
       peakMemory: 0,
       baselineMemory: 0,
       averageLatency: 0
