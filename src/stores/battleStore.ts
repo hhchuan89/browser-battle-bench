@@ -269,13 +269,19 @@ export const useBattleStore = defineStore('battle', () => {
       
       // Handle panic/warden violation
       if (error.message === 'WARDEN_VIOLATION' || systemStore.isPanic) {
+        const timing = systemStore.lastInferenceTimings;
+        const durationMs = Date.now() - startTime;
+        const totalTimeMs = timing.totalTimeMs ?? durationMs;
         const result: RoundResult = {
           challengeId: challenge.id,
           passed: false,
           score: 0,
           rawOutput: systemStore.outputStream,
           failureReason: systemStore.panicReason || 'JSON Violation detected',
-          durationMs: Date.now() - startTime
+          durationMs,
+          ttftMs: timing.ttftMs ?? null,
+          totalTimeMs,
+          charTimestamps: timing.charTimestamps ?? [],
         };
         session.value.results.push(result);
         session.value.currentIndex++;
