@@ -20,16 +20,20 @@ test.describe('BBB smoke routes', () => {
     ).toBeVisible()
   })
 
-  test('gauntlet renders placeholder copy', async ({ page }) => {
+  test('gauntlet renders functional entry state', async ({ page }) => {
     await page.goto('/gauntlet')
     await expect(page.getByRole('heading', { name: /Gauntlet/i })).toBeVisible()
-    await expect(page.getByText(/coming soon/i)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Initialize Engine|Start Logic Battle/i })
+    ).toBeVisible()
   })
 
-  test('stress renders placeholder copy', async ({ page }) => {
+  test('stress renders functional entry state', async ({ page }) => {
     await page.goto('/stress')
     await expect(page.getByRole('heading', { name: /Stress Test/i })).toBeVisible()
-    await expect(page.getByText(/coming soon/i)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Initialize Engine|Start/i })
+    ).toBeVisible()
   })
 
   test('leaderboard renders placeholder copy', async ({ page }) => {
