@@ -5,6 +5,7 @@ const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 
 export class LLMEngine {
   private engine: MLCEngineInterface | null = null;
+  private currentModelId: string | null = null;
   private static instance: LLMEngine;
 
   private constructor() {}
@@ -16,10 +17,19 @@ export class LLMEngine {
     return LLMEngine.instance;
   }
 
-  public async initialize(onProgress: InitProgressCallback): Promise<void> {
-    if (this.engine) return;
+  private resolveModelId(modelId?: string): string {
+    return modelId ?? this.currentModelId ?? SELECTED_MODEL;
+  }
+
+  public async initialize(onProgress: InitProgressCallback, modelId?: string): Promise<void> {
+    const resolvedModel = this.resolveModelId(modelId);
+    if (this.engine && this.currentModelId === resolvedModel) return;
 
     try {
+      if (this.engine && this.currentModelId !== resolvedModel) {
+        this.engine = null;
+      }
+
       // Create a new worker
       const worker = new Worker(
         new URL('../../workers/llm.worker.ts', import.meta.url), 
@@ -28,12 +38,13 @@ export class LLMEngine {
 
       this.engine = await CreateWebWorkerMLCEngine(
         worker,
-        SELECTED_MODEL,
+        resolvedModel,
         {
           initProgressCallback: onProgress,
           logLevel: "INFO",
         }
       );
+      this.currentModelId = resolvedModel;
       console.log("WebWorker Engine initialized successfully");
     } catch (error) {
       console.error("Failed to initialize engine:", error);

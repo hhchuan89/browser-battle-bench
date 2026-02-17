@@ -40,6 +40,15 @@ export const useSystemStore = defineStore('system', () => {
   const isPanic = ref(false);
   const panicReason = ref<string | null>(null);
 
+  const resolveSelectedModelId = (): string | null => {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    try {
+      return window.localStorage.getItem('bbb:selectedModel');
+    } catch {
+      return null;
+    }
+  };
+
   /**
    * Updates the status of a specific system component.
    * @param component - The key of the component to update.
@@ -87,12 +96,13 @@ export const useSystemStore = defineStore('system', () => {
     loadingText.value = "Initializing Engine...";
 
     const engine = LLMEngine.getInstance();
+    const selectedModelId = resolveSelectedModelId();
     
     try {
       await engine.initialize((report: InitProgressReport) => {
         modelLoadingProgress.value = report.progress;
         loadingText.value = report.text;
-      });
+      }, selectedModelId ?? undefined);
       
       status.value.webLlmEngine = 'ONLINE';
       isModelReady.value = true;
