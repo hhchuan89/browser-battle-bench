@@ -17,3 +17,8 @@ export { createBBBReportBundle, serializeBBBReportBundle } from './report-contra
 
 // Placeholder for model cache utilities
 // export { ModelCache } from './model-cache'
+export {
+  loadJsonFromLocalStorage,
+  saveJsonToLocalStorage,
+  removeLocalStorageKey,
+} from './persistence'

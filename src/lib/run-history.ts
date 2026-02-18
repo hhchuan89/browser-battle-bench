@@ -1,3 +1,9 @@
+import {
+  loadJsonFromLocalStorage,
+  removeLocalStorageKey,
+  saveJsonToLocalStorage,
+} from '@/lib/persistence'
+
 const STORAGE_KEY = 'bbb:run-history:v1'
 const MAX_ENTRIES = 200
 
@@ -19,25 +25,17 @@ export interface RunHistoryEntry {
   notes?: string
 }
 
-const canUseLocalStorage = (): boolean =>
-  typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+const isRunHistoryEntry = (entry: unknown): entry is RunHistoryEntry =>
+  typeof entry === 'object' &&
+  entry !== null &&
+  typeof (entry as RunHistoryEntry).id === 'string' &&
+  ((entry as RunHistoryEntry).mode === 'gauntlet' ||
+    (entry as RunHistoryEntry).mode === 'stress') &&
+  typeof (entry as RunHistoryEntry).completedAt === 'string'
 
-const safeParseEntries = (raw: string | null): RunHistoryEntry[] => {
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(
-      (entry): entry is RunHistoryEntry =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof entry.id === 'string' &&
-        (entry.mode === 'gauntlet' || entry.mode === 'stress') &&
-        typeof entry.completedAt === 'string'
-    )
-  } catch {
-    return []
-  }
+const normalizeEntries = (value: unknown): RunHistoryEntry[] => {
+  if (!Array.isArray(value)) return []
+  return value.filter(isRunHistoryEntry)
 }
 
 const sortByCompletedDesc = (entries: RunHistoryEntry[]): RunHistoryEntry[] =>
@@ -46,22 +44,18 @@ const sortByCompletedDesc = (entries: RunHistoryEntry[]): RunHistoryEntry[] =>
       new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
   )
 
-export const loadRunHistory = (): RunHistoryEntry[] => {
-  if (!canUseLocalStorage()) return []
-  return sortByCompletedDesc(
-    safeParseEntries(window.localStorage.getItem(STORAGE_KEY))
+export const loadRunHistory = (): RunHistoryEntry[] =>
+  sortByCompletedDesc(
+    normalizeEntries(loadJsonFromLocalStorage<unknown>(STORAGE_KEY, []))
   )
-}
 
 export const saveRunHistoryEntry = (entry: RunHistoryEntry): void => {
-  if (!canUseLocalStorage()) return
   const current = loadRunHistory()
   current.push(entry)
   const bounded = sortByCompletedDesc(current).slice(0, MAX_ENTRIES)
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bounded))
+  saveJsonToLocalStorage(STORAGE_KEY, bounded)
 }
 
 export const clearRunHistory = (): void => {
-  if (!canUseLocalStorage()) return
-  window.localStorage.removeItem(STORAGE_KEY)
+  removeLocalStorageKey(STORAGE_KEY)
 }
