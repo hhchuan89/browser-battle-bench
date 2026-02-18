@@ -35,6 +35,7 @@ export const useBattleStore = defineStore('battle', () => {
 
   const currentScenario = ref<BattleScenario | null>(null);
   const isProcessingRound = ref(false);
+  const stopRequested = ref(false);
   const battleStartedAt = ref<number | null>(null);
   const latestReportBundle = ref<BBBReportBundle | null>(null);
 
@@ -191,6 +192,7 @@ export const useBattleStore = defineStore('battle', () => {
 
     // Reset session
     currentScenario.value = scenario;
+    stopRequested.value = false;
     session.value = {
       scenarioId: scenario.id,
       currentIndex: 0,
@@ -211,6 +213,10 @@ export const useBattleStore = defineStore('battle', () => {
   async function nextRound() {
     if (!currentScenario.value) return;
     if (isProcessingRound.value) return;
+    if (stopRequested.value) {
+      finishBattle();
+      return;
+    }
 
     // Check if battle is complete
     if (session.value.currentIndex >= currentScenario.value.challenges.length) {
@@ -269,6 +275,10 @@ export const useBattleStore = defineStore('battle', () => {
       
       // Continue to next round
       isProcessingRound.value = false;
+      if (stopRequested.value) {
+        finishBattle();
+        return;
+      }
       await nextRound();
 
     } catch (error: any) {
@@ -294,9 +304,14 @@ export const useBattleStore = defineStore('battle', () => {
         session.value.currentIndex++;
         
         // Continue to next round after panic
+        if (stopRequested.value) {
+          finishBattle();
+          return;
+        }
         await nextRound();
       } else {
         session.value.errorMessage = error.message;
+        stopRequested.value = true;
         session.value.status = 'COMPLETE';
       }
     }
@@ -317,9 +332,10 @@ export const useBattleStore = defineStore('battle', () => {
       const completedAt = new Date().toISOString();
 
       try {
+        const mode = currentScenario.value.runMode ?? 'gauntlet';
         saveRunHistoryEntry({
-          id: `gauntlet-${Date.now()}`,
-          mode: 'gauntlet',
+          id: `${mode}-${Date.now()}`,
+          mode,
           scenarioId: currentScenario.value.id,
           scenarioName: currentScenario.value.name,
           startedAt: battleStartedAt.value ? new Date(battleStartedAt.value).toISOString() : completedAt,
@@ -337,8 +353,22 @@ export const useBattleStore = defineStore('battle', () => {
       void generateReportBundle();
     }
 
+    stopRequested.value = false;
     session.value.status = 'COMPLETE';
     isProcessingRound.value = false;
+  }
+
+  /**
+   * Request a graceful stop. If a round is running, it will stop after the round settles.
+   */
+  function stopBattle(reason?: string) {
+    if (reason) {
+      session.value.errorMessage = reason;
+    }
+    stopRequested.value = true;
+    if (!isProcessingRound.value) {
+      finishBattle();
+    }
   }
 
   /**
@@ -355,6 +385,7 @@ export const useBattleStore = defineStore('battle', () => {
     };
     currentScenario.value = null;
     isProcessingRound.value = false;
+    stopRequested.value = false;
     battleStartedAt.value = null;
     latestReportBundle.value = null;
   }
@@ -388,6 +419,7 @@ export const useBattleStore = defineStore('battle', () => {
     // Actions
     startBattle,
     nextRound,
+    stopBattle,
     resetBattle,
     finishBattle,
     generateReportBundle,

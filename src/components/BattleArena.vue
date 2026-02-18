@@ -11,6 +11,12 @@
             <CountUp :value="displayScore" />
           </span>
           <span class="text-sm text-base-content/60">/{{ battleStore.session.maxPossibleScore }}</span>
+          <p v-if="hasTimeLimit" class="text-xs mt-1">
+            Time Left:
+            <span class="font-bold" :class="timeRemainingClass">
+              {{ remainingSeconds ?? timeLimitSeconds }}s
+            </span>
+          </p>
         </div>
       </div>
       
@@ -79,7 +85,8 @@
             class="btn btn-primary flex-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
             @click="startBattle"
           >
-            <span class="text-lg mr-2">⚔️</span> Start Logic Battle
+            <span class="text-lg mr-2">{{ isQuickMode ? '⚡' : '⚔️' }}</span>
+            {{ isQuickMode ? 'Start Quick Battle' : 'Start Logic Battle' }}
           </button>
           <button 
             v-if="isFighting"
@@ -102,6 +109,16 @@
           <div v-if="battleStore.session.errorMessage" class="alert alert-error">
             <span class="text-lg">⚠️</span>
             <span>{{ battleStore.session.errorMessage }}</span>
+          </div>
+        </FadeTransition>
+
+        <FadeTransition :show="timedOut" :duration="300">
+          <div
+            v-if="timedOut"
+            class="alert border border-warning/50 bg-warning/10 text-warning-content"
+          >
+            <span class="text-lg">⏱️</span>
+            <span>Quick Battle reached time limit and was auto-stopped.</span>
           </div>
         </FadeTransition>
       </div>
@@ -153,12 +170,15 @@
         </div>
 
         <!-- Scenario Selector -->
-        <div class="card bg-base-100 shadow-xl border border-base-300">
+        <div
+          v-if="scenarioCatalog.length > 1"
+          class="card bg-base-100 shadow-xl border border-base-300"
+        >
           <div class="card-body p-4">
             <h3 class="font-bold mb-3">🎯 Select Scenario</h3>
             <div class="space-y-2">
               <button
-                v-for="scenario in availableScenarios"
+                v-for="scenario in scenarioCatalog"
                 :key="scenario.id"
                 class="btn btn-sm w-full justify-start transition-all duration-200"
                 :class="selectedScenario?.id === scenario.id ? 'btn-primary' : 'btn-ghost hover:btn-ghost hover:bg-base-200'"
@@ -224,7 +244,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useBattleStore } from '../stores/battleStore';
 import { useSystemStore } from '../stores/systemStore';
 import { logicTrapsLevel1, logicTrapsGrouped } from '../data/traps';
@@ -233,16 +253,53 @@ import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
 
+interface BattleArenaProps {
+  scenarios?: BattleScenario[];
+  defaultScenarioId?: string;
+  mode?: 'gauntlet' | 'quick';
+  timeLimitSeconds?: number;
+}
+
+const props = withDefaults(defineProps<BattleArenaProps>(), {
+  scenarios: () => [logicTrapsLevel1, logicTrapsGrouped],
+  defaultScenarioId: '',
+  mode: 'gauntlet',
+  timeLimitSeconds: 0,
+});
+
 const battleStore = useBattleStore();
 const systemStore = useSystemStore();
-
-const availableScenarios = [logicTrapsLevel1, logicTrapsGrouped];
-const selectedScenario = ref<BattleScenario>(logicTrapsLevel1);
 const showResults = ref(true);
 const isFlipping = ref(false);
 const displayScore = ref(0);
+const timedOut = ref(false);
+const remainingSeconds = ref<number | null>(null);
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
-// Computed properties
+const scenarioCatalog = computed<BattleScenario[]>(() =>
+  props.scenarios.length > 0 ? props.scenarios : [logicTrapsLevel1, logicTrapsGrouped]
+);
+
+const resolveScenarioSelection = (): BattleScenario => {
+  if (props.defaultScenarioId) {
+    const matched = scenarioCatalog.value.find((scenario) => scenario.id === props.defaultScenarioId);
+    if (matched) return matched;
+  }
+  return scenarioCatalog.value[0];
+};
+
+const selectedScenario = ref<BattleScenario>(resolveScenarioSelection());
+
+watch(
+  () => [scenarioCatalog.value, props.defaultScenarioId] as const,
+  () => {
+    if (!isFighting.value) {
+      selectedScenario.value = resolveScenarioSelection();
+    }
+  },
+  { deep: true }
+);
+
 const currentChallenge = computed(() => battleStore.currentChallenge);
 const currentOutput = computed(() => systemStore.outputStream);
 const isProcessing = computed(() => battleStore.isProcessingRound);
@@ -250,6 +307,16 @@ const isFighting = computed(() => battleStore.session.status === 'FIGHTING');
 const isComplete = computed(() => battleStore.session.status === 'COMPLETE');
 const canStart = computed(() => battleStore.canStart);
 const results = computed(() => battleStore.session.results);
+const isQuickMode = computed(() => props.mode === 'quick');
+const hasTimeLimit = computed(
+  () => isQuickMode.value && Number.isFinite(props.timeLimitSeconds) && props.timeLimitSeconds > 0
+);
+const timeLimitSeconds = computed(() =>
+  hasTimeLimit.value ? Math.round(props.timeLimitSeconds) : 0
+);
+const allChallenges = computed(() =>
+  scenarioCatalog.value.flatMap((scenario) => scenario.challenges)
+);
 
 const currentRound = computed(() => {
   if (isComplete.value) return battleStore.session.results.length;
@@ -266,7 +333,7 @@ const progressPercent = computed(() => {
 });
 
 const correctCount = computed(() => {
-  return results.value.filter(r => r.passed).length;
+  return results.value.filter((entry) => entry.passed).length;
 });
 
 const progressColorClass = computed(() => {
@@ -309,12 +376,56 @@ const performanceBadgeClass = computed(() => {
   return 'bg-error text-white';
 });
 
-// Watch for score changes
-watch(() => battleStore.session.totalScore, (newScore) => {
-  displayScore.value = newScore;
-}, { immediate: true });
+const timeRemainingClass = computed(() => {
+  if (!hasTimeLimit.value || remainingSeconds.value === null) return 'text-base-content';
+  if (remainingSeconds.value <= 5) return 'text-error';
+  if (remainingSeconds.value <= 10) return 'text-warning';
+  return 'text-success';
+});
 
-// Watch for challenge changes to trigger flip animation
+const clearCountdown = () => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+};
+
+const resetCountdown = () => {
+  if (!hasTimeLimit.value) {
+    remainingSeconds.value = null;
+    return;
+  }
+  remainingSeconds.value = timeLimitSeconds.value;
+};
+
+const startCountdown = () => {
+  if (!hasTimeLimit.value) return;
+  clearCountdown();
+  timedOut.value = false;
+  resetCountdown();
+
+  const startedAt = Date.now();
+  countdownTimer = setInterval(() => {
+    const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+    const nextSeconds = Math.max(0, timeLimitSeconds.value - elapsedSeconds);
+    remainingSeconds.value = nextSeconds;
+
+    if (nextSeconds <= 0) {
+      timedOut.value = true;
+      clearCountdown();
+      battleStore.stopBattle(`Quick Battle timeout (${timeLimitSeconds.value}s).`);
+    }
+  }, 250);
+};
+
+watch(
+  () => battleStore.session.totalScore,
+  (newScore) => {
+    displayScore.value = newScore;
+  },
+  { immediate: true }
+);
+
 watch(() => battleStore.session.currentIndex, () => {
   if (isFighting.value) {
     isFlipping.value = true;
@@ -324,14 +435,38 @@ watch(() => battleStore.session.currentIndex, () => {
   }
 });
 
-// Methods
+watch(isFighting, (fighting) => {
+  if (fighting) {
+    startCountdown();
+    return;
+  }
+  clearCountdown();
+  if (!timedOut.value) {
+    resetCountdown();
+  }
+});
+
+watch(
+  () => props.timeLimitSeconds,
+  () => {
+    if (!isFighting.value) {
+      resetCountdown();
+    }
+  }
+);
+
 function startBattle() {
   showResults.value = true;
+  timedOut.value = false;
+  resetCountdown();
   battleStore.startBattle(selectedScenario.value);
 }
 
 function resetBattle() {
+  timedOut.value = false;
+  clearCountdown();
   battleStore.resetBattle();
+  resetCountdown();
 }
 
 function resetAndStart() {
@@ -340,7 +475,7 @@ function resetAndStart() {
 }
 
 function getChallengeDescription(challengeId: string): string {
-  const challenge = selectedScenario.value.challenges.find(c => c.id === challengeId);
+  const challenge = allChallenges.value.find((entry) => entry.id === challengeId);
   return challenge?.description.substring(0, 30) + '...' || challengeId;
 }
 
@@ -369,11 +504,14 @@ async function downloadBBBReportBundle() {
   triggerDownload(`bbb-raw-outputs-${timestamp}.json`, bundle.rawOutputsJson);
 }
 
-// Watch for completion to show results
 watch(isComplete, (complete) => {
   if (complete) {
     showResults.value = true;
   }
+});
+
+onBeforeUnmount(() => {
+  clearCountdown();
 });
 </script>
 

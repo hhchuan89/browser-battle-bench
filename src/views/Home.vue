@@ -110,10 +110,22 @@ const startBattle = () => {
         <!-- Quick Links -->
         <div class="grid grid-cols-2 gap-4 text-sm">
           <router-link
+            to="/quick"
+            class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors"
+          >
+            ⚡ Quick Battle (30s)
+          </router-link>
+          <router-link
             to="/gauntlet"
             class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors"
           >
             🥊 Gauntlet Mode
+          </router-link>
+          <router-link
+            to="/stress"
+            class="block border border-green-800 hover:border-green-600 rounded p-3 text-center transition-colors"
+          >
+            🔥 Stress Test
           </router-link>
           <router-link
             to="/leaderboard"

@@ -7,6 +7,7 @@ BASE_URL="${BASE_URL%/}"
 routes=(
   "/"
   "/arena"
+  "/quick"
   "/gauntlet"
   "/stress"
   "/leaderboard"

@@ -20,6 +20,16 @@ test.describe('BBB smoke routes', () => {
     ).toBeVisible()
   })
 
+  test('quick renders entry state', async ({ page }) => {
+    await page.goto('/quick')
+    await expect(
+      page.getByRole('heading', { name: /Quick Battle/i })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Initialize Engine|Start Quick Battle/i })
+    ).toBeVisible()
+  })
+
   test('gauntlet renders functional entry state', async ({ page }) => {
     await page.goto('/gauntlet')
     await expect(page.getByRole('heading', { name: /Gauntlet/i })).toBeVisible()

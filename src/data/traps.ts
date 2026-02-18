@@ -203,7 +203,8 @@ export const logicTrapsLevel1: BattleScenario = {
     controlQuestions[4], // ctrl-005
     trapQuestions[4],    // trap-005
   ],
-  totalChallenges: 10
+  totalChallenges: 10,
+  runMode: 'gauntlet'
 };
 
 /** All control questions first, then all traps */
@@ -215,7 +216,8 @@ export const logicTrapsGrouped: BattleScenario = {
     ...controlQuestions,
     ...trapQuestions
   ],
-  totalChallenges: 10
+  totalChallenges: 10,
+  runMode: 'gauntlet'
 };
 
 /** Export all challenges individually for custom scenarios */

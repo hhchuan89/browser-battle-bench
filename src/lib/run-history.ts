@@ -7,7 +7,7 @@ import {
 const STORAGE_KEY = 'bbb:run-history:v1'
 const MAX_ENTRIES = 200
 
-export type RunMode = 'gauntlet' | 'stress'
+export type RunMode = 'gauntlet' | 'stress' | 'quick'
 
 export interface RunHistoryEntry {
   id: string
@@ -30,7 +30,8 @@ const isRunHistoryEntry = (entry: unknown): entry is RunHistoryEntry =>
   entry !== null &&
   typeof (entry as RunHistoryEntry).id === 'string' &&
   ((entry as RunHistoryEntry).mode === 'gauntlet' ||
-    (entry as RunHistoryEntry).mode === 'stress') &&
+    (entry as RunHistoryEntry).mode === 'stress' ||
+    (entry as RunHistoryEntry).mode === 'quick') &&
   typeof (entry as RunHistoryEntry).completedAt === 'string'
 
 const normalizeEntries = (value: unknown): RunHistoryEntry[] => {

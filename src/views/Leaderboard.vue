@@ -4,7 +4,7 @@ import { loadRunHistory, type RunHistoryEntry } from '@/lib/run-history'
 
 interface LeaderboardRow {
   key: string
-  mode: 'gauntlet' | 'stress'
+  mode: 'gauntlet' | 'stress' | 'quick'
   scenarioId: string
   scenarioName: string
   runs: number
@@ -133,7 +133,7 @@ onMounted(refreshLeaderboard)
           <p class="text-4xl mb-3">🏁</p>
           <p class="text-lg">No ranking data yet.</p>
           <p class="text-green-600 text-sm mt-2">
-            Complete Gauntlet or Stress runs to populate the leaderboard.
+            Complete Quick, Gauntlet, or Stress runs to populate the leaderboard.
           </p>
         </div>
 
@@ -151,10 +151,18 @@ onMounted(refreshLeaderboard)
                   :class="
                     row.mode === 'gauntlet'
                       ? 'bg-green-900 text-green-200'
-                      : 'bg-cyan-900 text-cyan-200'
+                      : row.mode === 'stress'
+                        ? 'bg-cyan-900 text-cyan-200'
+                        : 'bg-yellow-900 text-yellow-200'
                   "
                 >
-                  {{ row.mode === 'gauntlet' ? 'Gauntlet' : 'Stress' }}
+                  {{
+                    row.mode === 'gauntlet'
+                      ? 'Gauntlet'
+                      : row.mode === 'stress'
+                        ? 'Stress'
+                        : 'Quick'
+                  }}
                 </span>
                 <span class="font-bold">{{ row.scenarioName }}</span>
               </div>

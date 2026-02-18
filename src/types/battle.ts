@@ -43,6 +43,8 @@ export interface BattleScenario {
   challenges: Challenge[];
   /** Total number of challenges */
   totalChallenges: number;
+  /** Run history mode label for this scenario */
+  runMode?: 'gauntlet' | 'quick';
 }
 
 export interface RoundResult {

@@ -6,6 +6,7 @@ const route = useRoute()
 const navItems = [
   { path: '/', label: 'Home', icon: '🏠' },
   { path: '/arena', label: 'Arena', icon: '⚔️' },
+  { path: '/quick', label: 'Quick', icon: '⚡' },
   { path: '/gauntlet', label: 'Gauntlet', icon: '🥊' },
   { path: '/stress', label: 'Stress', icon: '🔥' },
   { path: '/history', label: 'History', icon: '📜' },

@@ -14,6 +14,7 @@ export {
   generateReplayHashFromRawOutputs,
 } from './replay-hash'
 export { createBBBReportBundle, serializeBBBReportBundle } from './report-contract'
+export { analyzeRunDrift } from './drift-analysis'
 
 // Placeholder for model cache utilities
 // export { ModelCache } from './model-cache'

@@ -24,6 +24,9 @@ const gauntletRuns = computed(
 const stressRuns = computed(
   () => entries.value.filter((entry) => entry.mode === 'stress').length
 )
+const quickRuns = computed(
+  () => entries.value.filter((entry) => entry.mode === 'quick').length
+)
 const avgPassRate = computed(() => {
   if (entries.value.length === 0) return 0
   const total = entries.value.reduce((sum, entry) => sum + entry.passRate, 0)
@@ -78,7 +81,7 @@ onMounted(refreshHistory)
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm mb-4">
           <div class="border border-green-900 rounded p-3">
             <p class="text-green-600">Total Runs</p>
             <p class="text-xl font-bold">{{ totalRuns }}</p>
@@ -92,6 +95,10 @@ onMounted(refreshHistory)
             <p class="text-xl font-bold">{{ stressRuns }}</p>
           </div>
           <div class="border border-green-900 rounded p-3">
+            <p class="text-green-600">Quick</p>
+            <p class="text-xl font-bold">{{ quickRuns }}</p>
+          </div>
+          <div class="border border-green-900 rounded p-3">
             <p class="text-green-600">Avg Pass Rate</p>
             <p class="text-xl font-bold">{{ avgPassRate.toFixed(1) }}%</p>
           </div>
@@ -101,7 +108,7 @@ onMounted(refreshHistory)
           <p class="text-4xl mb-3">🗂️</p>
           <p class="text-lg">No local runs recorded yet.</p>
           <p class="text-green-600 text-sm mt-2">
-            Complete a Gauntlet or Stress run to populate this history.
+            Complete a Quick, Gauntlet, or Stress run to populate this history.
           </p>
         </div>
 
@@ -118,10 +125,18 @@ onMounted(refreshHistory)
                   :class="
                     entry.mode === 'gauntlet'
                       ? 'bg-green-900 text-green-200'
-                      : 'bg-cyan-900 text-cyan-200'
+                      : entry.mode === 'stress'
+                        ? 'bg-cyan-900 text-cyan-200'
+                        : 'bg-yellow-900 text-yellow-200'
                   "
                 >
-                  {{ entry.mode === 'gauntlet' ? 'Gauntlet' : 'Stress' }}
+                  {{
+                    entry.mode === 'gauntlet'
+                      ? 'Gauntlet'
+                      : entry.mode === 'stress'
+                        ? 'Stress'
+                        : 'Quick'
+                  }}
                 </span>
                 <span class="font-bold">{{ entry.scenarioName }}</span>
               </div>
