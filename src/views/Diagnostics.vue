@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { analyzeRunDrift, type DriftAnalysisSummary } from '@/lib/drift-analysis'
 import { loadRunHistory } from '@/lib/run-history'
+import { getSelectedModelId } from '@/lib/settings-store'
 
 const route = useRoute()
 
@@ -29,8 +30,7 @@ const runDiagnostics = async () => {
 
   diagnostics.value.routePath = route.path
   diagnostics.value.routeName = route.name ? String(route.name) : 'unknown'
-  diagnostics.value.selectedModel =
-    localStorage.getItem('bbb:selectedModel') || 'Not set'
+  diagnostics.value.selectedModel = getSelectedModelId() || 'Not set'
 
   const navigationEntry = performance.getEntriesByType('navigation')[0]
   if (navigationEntry && 'type' in navigationEntry) {

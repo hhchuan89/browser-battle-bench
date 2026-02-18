@@ -9,6 +9,7 @@ test.describe('BBB smoke routes', () => {
     await expect(
       page.getByRole('button', { name: /Enter Arena/i })
     ).toBeVisible()
+    await expect(page.getByText(/Quick Battle Snapshot/i)).toBeVisible()
   })
 
   test('arena renders model selector and start button', async ({ page }) => {

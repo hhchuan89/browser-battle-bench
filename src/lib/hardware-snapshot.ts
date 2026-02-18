@@ -1,4 +1,5 @@
 import type { BBBHardwareReport } from '@/types/report'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 export interface HardwareSnapshot {
   tier: BBBHardwareReport['tier']
@@ -7,8 +8,6 @@ export interface HardwareSnapshot {
   is_mobile: boolean
   timestamp: string
 }
-
-const STORAGE_KEY = 'bbb:hardwareSnapshot'
 
 const resolveStorage = (storage?: Storage): Storage | null => {
   if (storage) return storage
@@ -23,7 +22,7 @@ export const saveHardwareSnapshot = (
   const target = resolveStorage(storage)
   if (!target) return false
   try {
-    target.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+    target.setItem(STORAGE_KEYS.hardwareSnapshot, JSON.stringify(snapshot))
     return true
   } catch {
     return false
@@ -36,7 +35,7 @@ export const loadHardwareSnapshot = (
   const target = resolveStorage(storage)
   if (!target) return null
   try {
-    const raw = target.getItem(STORAGE_KEY)
+    const raw = target.getItem(STORAGE_KEYS.hardwareSnapshot)
     if (!raw) return null
     const parsed = JSON.parse(raw) as HardwareSnapshot
     if (!parsed || typeof parsed !== 'object') return null

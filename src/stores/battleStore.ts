@@ -17,9 +17,11 @@ import type { BBBReportBundle } from '@/types/report';
 import { useSystemStore } from './systemStore';
 import { JudgeLogic } from '../services/warden/JudgeLogic';
 import { saveRunHistoryEntry } from '@/lib/run-history';
+import { saveQuickResultEntry } from '@/lib/quick-results';
 import { TEST_SUITE_VERSION } from '@/data/suite-version';
 import { createBBBReportBundle, serializeBBBReportBundle } from '@/lib/report-contract';
 import { loadHardwareSnapshot } from '@/lib/hardware-snapshot';
+import { getSelectedModelId } from '@/lib/settings-store';
 
 export const useBattleStore = defineStore('battle', () => {
   // ========== STATE ==========
@@ -83,12 +85,7 @@ export const useBattleStore = defineStore('battle', () => {
     return squaredDiff.reduce((sum, diff) => sum + diff, 0) / scores.length;
   };
 
-  const resolveSelectedModelId = (): string => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem('bbb:selectedModel') || 'unknown-model';
-    }
-    return 'unknown-model';
-  };
+  const resolveSelectedModelId = (): string => getSelectedModelId();
 
   const createBattleRawOutputs = (): Array<{
     test_id: string;
@@ -346,6 +343,20 @@ export const useBattleStore = defineStore('battle', () => {
           passedRounds,
           scorePct: Math.round(scorePct * 100) / 100
         });
+
+        if (mode === 'quick') {
+          saveQuickResultEntry({
+            id: `quick-result-${Date.now()}`,
+            scenarioId: currentScenario.value.id,
+            scenarioName: currentScenario.value.name,
+            completedAt,
+            durationMs,
+            passRate: Math.round(passRate * 100) / 100,
+            totalRounds,
+            passedRounds,
+            scorePct: Math.round(scorePct * 100) / 100,
+          });
+        }
       } catch (error) {
         console.warn('Failed to persist battle run history', error);
       }

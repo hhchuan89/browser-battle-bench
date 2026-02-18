@@ -1,23 +1,39 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGatekeeper } from '../composables/useGatekeeper'
+import { loadQuickResults } from '@/lib/quick-results'
 
 const { isScanning, result, scan, tierLabel } = useGatekeeper()
 const scanComplete = ref(false)
 const router = useRouter()
 const isDev = import.meta.env.DEV
+const quickRuns = ref(loadQuickResults())
 
 onMounted(() => {
   // Auto-scan on mount
   scan().then(() => {
     scanComplete.value = true
   })
+  quickRuns.value = loadQuickResults()
 })
 
 const startBattle = () => {
   // Navigate to arena
   router.push('/arena')
+}
+
+const latestQuick = computed(() => quickRuns.value[0] ?? null)
+const quickTotalRuns = computed(() => quickRuns.value.length)
+const quickBestScore = computed(() => {
+  if (quickRuns.value.length === 0) return 0
+  return Math.max(...quickRuns.value.map((entry) => entry.scorePct))
+})
+
+const formatDuration = (durationMs: number) => {
+  if (durationMs < 1000) return `${durationMs}ms`
+  if (durationMs < 60000) return `${(durationMs / 1000).toFixed(1)}s`
+  return `${(durationMs / 60000).toFixed(1)}m`
 }
 </script>
 
@@ -105,6 +121,24 @@ const startBattle = () => {
           >
             ⚔️ Enter Arena
           </button>
+        </div>
+
+        <div class="border border-green-800 rounded-lg p-4 text-sm">
+          <h3 class="text-green-500 mb-3">⚡ Quick Battle Snapshot</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div>Total Quick Runs:</div>
+            <div>{{ quickTotalRuns }}</div>
+            <div>Best Score:</div>
+            <div>{{ quickBestScore.toFixed(1) }}%</div>
+            <template v-if="latestQuick">
+              <div>Latest Score:</div>
+              <div>{{ latestQuick.scorePct.toFixed(1) }}%</div>
+              <div>Latest Pass:</div>
+              <div>{{ latestQuick.passedRounds }} / {{ latestQuick.totalRounds }}</div>
+              <div>Latest Duration:</div>
+              <div>{{ formatDuration(latestQuick.durationMs) }}</div>
+            </template>
+          </div>
         </div>
         
         <!-- Quick Links -->

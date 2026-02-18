@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useWebLLM } from '@/composables/useWebLLM'
 import { useStreamValidator } from '@/composables/useStreamValidator'
 import { useScorer } from '@/composables/useScorer'
+import { usePersistence } from '@/composables/usePersistence'
 import { easySchemas, type SchemaDefinition } from '@/data/schemas/easy'
+import { getDefaultModelId } from '@/lib/settings-store'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { z } from 'zod'
 
 // State
-const selectedModel = ref('Llama-3.2-1B-Instruct-q4f16_1-MLC')
 const selectedSchema = ref<SchemaDefinition>(easySchemas[0])
 const battleStatus = ref<'idle' | 'loading' | 'streaming' | 'scoring' | 'complete'>('idle')
 const error = ref<string | null>(null)
@@ -38,6 +40,12 @@ const {
 } = useStreamValidator()
 
 const { calculateScore } = useScorer()
+const modelPreference = usePersistence<string>(
+  STORAGE_KEYS.selectedModel,
+  getDefaultModelId(),
+  { autoSave: true }
+)
+const selectedModel = modelPreference.state
 
 // Available models (WebLLM supported)
 const availableModels = [
@@ -45,15 +53,6 @@ const availableModels = [
   { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', tier: 'free' },
   { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC', name: 'Llama 3.1 8B', tier: 'pro' },
 ]
-
-const storedModel = localStorage.getItem('bbb:selectedModel')
-if (storedModel) {
-  selectedModel.value = storedModel
-}
-
-watch(selectedModel, (value) => {
-  localStorage.setItem('bbb:selectedModel', value)
-})
 
 // Start battle
 const startBattle = async () => {

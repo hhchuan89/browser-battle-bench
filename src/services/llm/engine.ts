@@ -1,7 +1,7 @@
 import { CreateWebWorkerMLCEngine, type MLCEngineInterface, type InitProgressCallback } from "@mlc-ai/web-llm";
+import { getDefaultModelId } from '@/lib/settings-store'
 
-// Hardcoded model for testing
-const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+const SELECTED_MODEL = getDefaultModelId()
 
 export class LLMEngine {
   private engine: MLCEngineInterface | null = null;

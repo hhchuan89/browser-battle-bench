@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { loadHardwareSnapshot, saveHardwareSnapshot } from '@/lib/hardware-snapshot'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
 const createMemoryStorage = (): Storage => {
   const store = new Map<string, string>()
@@ -44,7 +45,7 @@ describe('hardware-snapshot', () => {
 
   it('returns null for invalid payloads', () => {
     const storage = createMemoryStorage()
-    storage.setItem('bbb:hardwareSnapshot', '{"tier":123}')
+    storage.setItem(STORAGE_KEYS.hardwareSnapshot, '{"tier":123}')
     expect(loadHardwareSnapshot(storage)).toBeNull()
   })
 })

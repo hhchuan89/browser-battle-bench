@@ -3,8 +3,8 @@ import {
   removeLocalStorageKey,
   saveJsonToLocalStorage,
 } from '@/lib/persistence'
+import { STORAGE_KEYS } from '@/lib/storage-keys'
 
-const STORAGE_KEY = 'bbb:run-history:v1'
 const MAX_ENTRIES = 200
 
 export type RunMode = 'gauntlet' | 'stress' | 'quick'
@@ -47,16 +47,16 @@ const sortByCompletedDesc = (entries: RunHistoryEntry[]): RunHistoryEntry[] =>
 
 export const loadRunHistory = (): RunHistoryEntry[] =>
   sortByCompletedDesc(
-    normalizeEntries(loadJsonFromLocalStorage<unknown>(STORAGE_KEY, []))
+    normalizeEntries(loadJsonFromLocalStorage<unknown>(STORAGE_KEYS.runHistory, []))
   )
 
 export const saveRunHistoryEntry = (entry: RunHistoryEntry): void => {
   const current = loadRunHistory()
   current.push(entry)
   const bounded = sortByCompletedDesc(current).slice(0, MAX_ENTRIES)
-  saveJsonToLocalStorage(STORAGE_KEY, bounded)
+  saveJsonToLocalStorage(STORAGE_KEYS.runHistory, bounded)
 }
 
 export const clearRunHistory = (): void => {
-  removeLocalStorageKey(STORAGE_KEY)
+  removeLocalStorageKey(STORAGE_KEYS.runHistory)
 }

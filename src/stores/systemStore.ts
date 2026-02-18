@@ -4,6 +4,7 @@ import type { SystemStatus, BattleState } from '../types';
 import { LLMEngine } from '../services/llm/engine';
 import { StreamGuillotine } from '../services/warden/guillotine';
 import type { InitProgressReport } from '@mlc-ai/web-llm';
+import { getSelectedModelId } from '@/lib/settings-store';
 
 /**
  * Manages the global system status and battle state.
@@ -40,14 +41,7 @@ export const useSystemStore = defineStore('system', () => {
   const isPanic = ref(false);
   const panicReason = ref<string | null>(null);
 
-  const resolveSelectedModelId = (): string | null => {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
-    try {
-      return window.localStorage.getItem('bbb:selectedModel');
-    } catch {
-      return null;
-    }
-  };
+  const resolveSelectedModelId = (): string => getSelectedModelId();
 
   /**
    * Updates the status of a specific system component.
@@ -102,7 +96,7 @@ export const useSystemStore = defineStore('system', () => {
       await engine.initialize((report: InitProgressReport) => {
         modelLoadingProgress.value = report.progress;
         loadingText.value = report.text;
-      }, selectedModelId ?? undefined);
+      }, selectedModelId);
       
       status.value.webLlmEngine = 'ONLINE';
       isModelReady.value = true;
