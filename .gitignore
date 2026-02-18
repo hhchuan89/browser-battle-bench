@@ -147,3 +147,4 @@ plan-job/
 .playwright-sockets/
 test-results/
 playwright-report/
+output/

@@ -4,6 +4,7 @@ import { useGatekeeper } from '@/composables/useGatekeeper'
 const originalNavigator = globalThis.navigator
 const originalFetch = globalThis.fetch
 const originalAbortSignal = globalThis.AbortSignal
+const originalWindow = (globalThis as any).window
 
 const setNavigator = (value: any) => {
   Object.defineProperty(globalThis, 'navigator', {
@@ -35,6 +36,16 @@ const restoreGlobals = () => {
     delete (globalThis as any).AbortSignal
   } else {
     globalThis.AbortSignal = originalAbortSignal
+  }
+
+  if (originalWindow === undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete (globalThis as any).window
+  } else {
+    Object.defineProperty(globalThis, 'window', {
+      value: originalWindow,
+      configurable: true,
+    })
   }
 }
 
@@ -116,5 +127,32 @@ describe('useGatekeeper', () => {
 
     expect(result.value?.ollamaAvailable).toBe(true)
     expect(result.value?.ollamaModels).toEqual(['llama3:8b', 'mistral:7b'])
+  })
+
+  it('skips Ollama probe on secure non-loopback origins', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: [{ name: 'llama3:8b' }] }),
+    })
+    globalThis.fetch = fetchMock as any
+
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        location: {
+          protocol: 'https:',
+          hostname: 'browserbattlebench.vercel.app',
+        },
+      },
+      configurable: true,
+    })
+
+    setNavigator({ userAgent: 'Mozilla/5.0 (Macintosh)' })
+
+    const { scan, result } = useGatekeeper()
+    await scan()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(result.value?.ollamaAvailable).toBe(false)
+    expect(result.value?.ollamaModels).toEqual([])
   })
 })

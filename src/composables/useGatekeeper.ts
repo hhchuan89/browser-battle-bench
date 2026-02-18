@@ -16,6 +16,19 @@ export interface GatekeeperResult {
 export function useGatekeeper() {
   const isScanning = ref(false)
   const result = ref<GatekeeperResult | null>(null)
+
+  const isLoopbackHost = (hostname: string): boolean =>
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+
+  const shouldProbeOllama = (): boolean => {
+    if (typeof window === 'undefined' || !window.location) return true
+    const { protocol, hostname } = window.location
+    // Browsers block secure-origin -> localhost probes without private-network opt-in.
+    if (protocol === 'https:' && !isLoopbackHost(hostname)) {
+      return false
+    }
+    return true
+  }
   
   const scan = async () => {
     isScanning.value = true
@@ -59,18 +72,20 @@ export function useGatekeeper() {
     // 4. Ollama detection
     let ollamaAvailable = false
     let ollamaModels: string[] = []
-    try {
-      const res = await fetch('http://localhost:11434/api/tags', { 
-        method: 'GET',
-        signal: AbortSignal.timeout(3000)
-      })
-      if (res.ok) {
-        ollamaAvailable = true
-        const data = await res.json()
-        ollamaModels = data.models?.map((m: any) => m.name) || []
+    if (shouldProbeOllama()) {
+      try {
+        const res = await fetch('http://localhost:11434/api/tags', { 
+          method: 'GET',
+          signal: AbortSignal.timeout(3000)
+        })
+        if (res.ok) {
+          ollamaAvailable = true
+          const data = await res.json()
+          ollamaModels = data.models?.map((m: any) => m.name) || []
+        }
+      } catch (e) {
+        // Ollama not available
       }
-    } catch (e) {
-      // Ollama not available
     }
     
     // 5. Tier assignment
