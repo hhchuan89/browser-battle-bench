@@ -39,7 +39,7 @@ const getUserAgent = (): string =>
     ? navigator.userAgent
     : 'Unknown UA'
 
-const detectBrowser = (ua: string): string => {
+export const detectBrowser = (ua: string): string => {
   if (/Edg\//.test(ua)) return 'Edge'
   if (/Chrome\//.test(ua)) return 'Chrome'
   if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari'
@@ -47,7 +47,7 @@ const detectBrowser = (ua: string): string => {
   return 'Unknown Browser'
 }
 
-const detectOs = (ua: string): string => {
+export const detectOs = (ua: string): string => {
   if (/Mac OS X/.test(ua)) return 'macOS'
   if (/Windows NT/.test(ua)) return 'Windows'
   if (/Linux/.test(ua)) return 'Linux'

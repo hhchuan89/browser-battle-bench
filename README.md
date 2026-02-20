@@ -1,6 +1,6 @@
 # Browser Battle Bench
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/yourusername/browser-battle-bench)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/hhchuan89/browser-battle-bench)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Vue 3](https://img.shields.io/badge/Vue-3.4-brightgreen.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue.svg)](https://www.typescriptlang.org/)
@@ -9,13 +9,11 @@
 
 Browser Battle Bench is a zero-cost, edge-first benchmarking tool that runs entirely in your browser. It stress-tests AI models using challenging logic traps, JSON constraints, and endurance scenarios.
 
-![Browser Battle Bench Screenshot](./docs/screenshot.png)
-
 ## 🚀 Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/browser-battle-bench.git
+git clone https://github.com/hhchuan89/browser-battle-bench.git
 cd browser-battle-bench
 
 # Install dependencies
@@ -94,7 +92,6 @@ browser-battle-bench/
 │   ├── App.vue
 │   └── main.ts
 ├── public/                  # Static assets
-├── docs/                    # Documentation
 ├── index.html
 ├── package.json
 ├── vite.config.ts
@@ -195,7 +192,7 @@ Stress-tests model through:
 
 ## 🤝 Contributing
 
-See [DEVELOPMENT.md](./DEVELOPMENT.md) for contributor guidelines.
+Contributions are welcome through issues and pull requests.
 
 ## 📄 License
 
@@ -209,10 +206,9 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ## 🔗 Links
 
-- [Live Demo](https://yourusername.github.io/browser-battle-bench/)
-- [Documentation](./docs/)
-- [Issues](https://github.com/yourusername/browser-battle-bench/issues)
-- [Changelog](./CHANGELOG.md)
+- [Live Demo](https://browserbattlebench.vercel.app/)
+- [Repository](https://github.com/hhchuan89/browser-battle-bench)
+- [Issues](https://github.com/hhchuan89/browser-battle-bench/issues)
 
 ---
 
