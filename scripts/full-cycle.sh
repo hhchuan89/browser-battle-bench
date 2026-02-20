@@ -297,7 +297,7 @@ if [[ "$PUSH_STATUS" == "OK" ]]; then
 fi
 
 commit_sha='none'
-if [[ "$PUSH_STATUS" == "OK" ]]; then
+if [[ "$PUSH_STATUS" == "OK" && "$PRODUCT_STATUS" == "PASS" ]]; then
   git add -A
   git reset --quiet -- plan-job || true
   if ! git diff --cached --quiet; then
@@ -317,6 +317,9 @@ if [[ "$PUSH_STATUS" == "OK" ]]; then
   else
     append_note 'no code changes to commit'
   fi
+elif [[ "$PUSH_STATUS" == "OK" ]]; then
+  PUSH_STATUS='SKIPPED_PRODUCT_NOT_PASS'
+  append_note "commit/push skipped because product status is ${PRODUCT_STATUS}"
 fi
 
 cat >"$TEST_REPORT_FILE" <<EOF_REPORT
@@ -383,7 +386,7 @@ log "plan: ${IMPL_PLAN_FILE}"
 log "report: ${TEST_REPORT_FILE}"
 log "statuses: product=${PRODUCT_STATUS} env=${ENV_STATUS} push=${PUSH_STATUS} impl=${IMPLEMENT_STATUS} ui=${UI_MODE}"
 
-if [[ "$PUSH_STATUS" == "OK" && "$PRODUCT_STATUS" != "FAIL" ]]; then
+if [[ "$PUSH_STATUS" == "OK" && "$PRODUCT_STATUS" == "PASS" ]]; then
   exit 0
 fi
 

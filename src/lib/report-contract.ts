@@ -48,11 +48,11 @@ export const detectBrowser = (ua: string): string => {
 }
 
 export const detectOs = (ua: string): string => {
+  if (/Android/.test(ua)) return 'Android'
+  if (/iPhone|iPad|iPod/.test(ua)) return 'iOS'
   if (/Mac OS X/.test(ua)) return 'macOS'
   if (/Windows NT/.test(ua)) return 'Windows'
   if (/Linux/.test(ua)) return 'Linux'
-  if (/Android/.test(ua)) return 'Android'
-  if (/iPhone|iPad|iPod/.test(ua)) return 'iOS'
   return 'Unknown OS'
 }
 
