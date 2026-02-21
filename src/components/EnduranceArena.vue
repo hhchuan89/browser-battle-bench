@@ -458,7 +458,7 @@ function getLatencyBarColor(durationMs: number): string {
                 v-if="stressSharePayload"
                 :payload="stressSharePayload"
                 :show-next="true"
-                next-label="Next Challenge"
+                next-label="Leaderboard"
                 :next-to="stressSharePayload.nextRoute || '/leaderboard'"
               />
             </div>

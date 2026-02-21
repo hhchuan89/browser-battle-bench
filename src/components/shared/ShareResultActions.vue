@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import html2canvas from 'html2canvas'
-import ShareCard from '@/components/shared/ShareCard.vue'
 import type { ShareResultPayload } from '@/types/share'
+import { createShareCardFile } from '@/lib/share/share-card-image'
 
 const props = withDefaults(
   defineProps<{
@@ -30,21 +29,9 @@ const emit = defineEmits<{
 const router = useRouter()
 const isBusy = ref(false)
 const statusText = ref('')
-const cardHostRef = ref<HTMLElement | null>(null)
 
 const getCardFile = async (): Promise<File | null> => {
-  const target = cardHostRef.value?.firstElementChild as HTMLElement | null
-  if (!target) return null
-  const canvas = await html2canvas(target, {
-    backgroundColor: '#000000',
-    scale: 2,
-    useCORS: true,
-  })
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob((value) => resolve(value), 'image/png')
-  )
-  if (!blob) return null
-  return new File([blob], `bbb-share-${Date.now()}.png`, { type: 'image/png' })
+  return createShareCardFile(props.payload)
 }
 
 const copyText = async (text: string): Promise<boolean> => {
@@ -193,9 +180,5 @@ const goNext = () => {
     <p v-if="statusText" class="text-xs text-base-content/70">
       {{ statusText }}
     </p>
-
-    <div ref="cardHostRef" class="fixed -left-[9999px] -top-[9999px] pointer-events-none">
-      <ShareCard :payload="payload" />
-    </div>
   </div>
 </template>
