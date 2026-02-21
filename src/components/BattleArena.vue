@@ -236,6 +236,7 @@
             <ShareResultActions
               v-if="battleSharePayload"
               :payload="battleSharePayload"
+              :publish-report="publishBattleShare"
               :show-next="true"
               :next-label="nextLabel"
               :next-to="battleSharePayload.nextRoute || ''"
@@ -266,6 +267,9 @@ import { isScenarioCompatibleForArenaView } from '@/lib/battle-session';
 import { loadHardwareSnapshot } from '@/lib/hardware-snapshot';
 import { getSelectedModelId } from '@/lib/settings-store';
 import { buildBattleSharePayload } from '@/lib/share/share-payload';
+import { publishReport } from '@/lib/share/publish-report';
+import { buildBattlePublishRequest } from '@/lib/share/publish-normalizers';
+import type { PublishedShareLinks } from '@/lib/share/publish-types';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
@@ -293,6 +297,7 @@ const displayScore = ref(0);
 const timedOut = ref(false);
 const remainingSeconds = ref<number | null>(null);
 const shareRunRef = ref<string | null>(null);
+const publishedShareLinks = ref<PublishedShareLinks | null>(null);
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
 const scenarioCatalog = computed<BattleScenario[]>(() =>
@@ -382,6 +387,31 @@ const battleSharePayload = computed(() => {
     stressBlocked: isStressBlocked.value,
   });
 });
+
+const publishBattleShare = async (): Promise<PublishedShareLinks> => {
+  if (publishedShareLinks.value) return publishedShareLinks.value;
+  if (!battleSharePayload.value) {
+    throw new Error('Battle result is not ready for publishing.');
+  }
+
+  let report = battleStore.latestReportBundle?.report || null;
+  if (!report) {
+    await battleStore.generateReportBundle();
+    report = battleStore.latestReportBundle?.report || null;
+  }
+  if (!report) {
+    throw new Error('Unable to generate battle report for publishing.');
+  }
+
+  const request = buildBattlePublishRequest({
+    payload: battleSharePayload.value,
+    report,
+    tier: hardwareSnapshot.value?.tier,
+  });
+  const links = await publishReport(request);
+  publishedShareLinks.value = links;
+  return links;
+};
 
 const getAllowedScenarioIds = () => scenarioCatalog.value.map((scenario) => scenario.id);
 
@@ -539,6 +569,7 @@ function startBattle() {
   showResults.value = true;
   timedOut.value = false;
   resetCountdown();
+  publishedShareLinks.value = null;
   battleStore.startBattle(selectedScenario.value);
 }
 
@@ -546,6 +577,7 @@ function resetBattle() {
   timedOut.value = false;
   clearCountdown();
   shareRunRef.value = null;
+  publishedShareLinks.value = null;
   battleStore.resetBattle();
   resetCountdown();
 }

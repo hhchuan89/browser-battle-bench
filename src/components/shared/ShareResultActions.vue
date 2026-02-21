@@ -8,6 +8,7 @@ import {
   buildSocialShareText,
   type SocialShareTarget,
 } from '@/lib/share/social-share'
+import type { PublishedShareLinks } from '@/lib/share/publish-types'
 
 const props = withDefaults(
   defineProps<{
@@ -15,6 +16,7 @@ const props = withDefaults(
     showNext?: boolean
     nextLabel?: string
     nextTo?: string
+    publishReport?: () => Promise<PublishedShareLinks>
   }>(),
   {
     showNext: false,
@@ -35,10 +37,22 @@ const router = useRouter()
 const isBusy = ref(false)
 const statusText = ref('')
 const showSocialMenu = ref(false)
-const socialTargets = computed(() => buildSocialShareTargets(props.payload))
+const publishedLinks = ref<PublishedShareLinks | null>(null)
+
+const resolvedShareUrl = computed(
+  () => publishedLinks.value?.share_url || props.payload.shareUrl
+)
+const resolvedCardPayload = computed<ShareResultPayload>(() => ({
+  ...props.payload,
+  shareUrl: resolvedShareUrl.value,
+  challengeUrl: resolvedShareUrl.value,
+}))
+const socialTargets = computed(() =>
+  buildSocialShareTargets(props.payload, resolvedShareUrl.value)
+)
 
 const getCardFile = async (): Promise<File | null> => {
-  return createShareCardFile(props.payload)
+  return createShareCardFile(resolvedCardPayload.value)
 }
 
 const copyImageToClipboard = async (file: File): Promise<boolean> => {
@@ -113,21 +127,54 @@ const copyChallengeLink = async () => {
 }
 
 const copyShareLink = async () => {
-  const ok = await copyText(props.payload.shareUrl)
+  const ready = await ensurePublishedShareUrl()
+  if (!ready) return
+  const ok = await copyText(resolvedShareUrl.value)
   statusText.value = ok ? 'Share link copied.' : 'Failed to copy share link.'
   showSocialMenu.value = false
   if (ok) emit('link-copied')
 }
 
-const toggleSocialShareMenu = () => {
-  showSocialMenu.value = !showSocialMenu.value
-  statusText.value = showSocialMenu.value
-    ? 'Choose a social platform.'
-    : ''
+const ensurePublishedShareUrl = async (): Promise<boolean> => {
+  if (!props.publishReport || publishedLinks.value) return true
+  isBusy.value = true
+  statusText.value = 'Publishing result...'
+  try {
+    const links = await props.publishReport()
+    publishedLinks.value = links
+    statusText.value = 'Published. Choose a social platform.'
+    return true
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    statusText.value = `Publish failed: ${reason}`
+    emit('error', reason)
+    return false
+  } finally {
+    isBusy.value = false
+  }
+}
+
+const toggleSocialShareMenu = async () => {
+  if (isBusy.value) return
+  if (showSocialMenu.value) {
+    showSocialMenu.value = false
+    statusText.value = ''
+    return
+  }
+
+  const ready = await ensurePublishedShareUrl()
+  if (!ready) return
+  showSocialMenu.value = true
+  if (!statusText.value) {
+    statusText.value = 'Choose a social platform.'
+  }
 }
 
 const openSocialShare = async (target: SocialShareTarget) => {
   if (isBusy.value) return
+  const ready = await ensurePublishedShareUrl()
+  if (!ready) return
+
   const popup = window.open(target.url, '_blank', 'noopener,noreferrer')
   if (!popup) {
     const reason = 'Unable to open share window. Please allow popups for this site.'
@@ -141,7 +188,7 @@ const openSocialShare = async (target: SocialShareTarget) => {
   try {
     const [file, textCopied] = await Promise.all([
       getCardFile(),
-      copyText(`${buildSocialShareText(props.payload)}\n${props.payload.challengeUrl}`),
+      copyText(`${buildSocialShareText(props.payload)}\n${resolvedShareUrl.value}`),
     ])
     const imageCopied = file ? await copyImageToClipboard(file) : false
 
@@ -178,7 +225,7 @@ const goNext = () => {
       <button
         class="btn btn-primary btn-sm"
         :disabled="isBusy"
-        @click="toggleSocialShareMenu"
+        @click="void toggleSocialShareMenu()"
       >
         Share
       </button>
@@ -192,7 +239,7 @@ const goNext = () => {
       <button
         class="btn btn-ghost btn-sm"
         :disabled="isBusy"
-        @click="copyShareLink"
+        @click="void copyShareLink()"
       >
         Copy Link
       </button>
@@ -222,7 +269,7 @@ const goNext = () => {
           v-for="target in socialTargets"
           :key="target.id"
           class="btn btn-outline btn-xs"
-          @click="openSocialShare(target)"
+          @click="void openSocialShare(target)"
         >
           <span class="font-bold">{{ target.icon }}</span>
           {{ target.label }}

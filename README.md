@@ -130,7 +130,25 @@ VITE_MODEL_CATALOG_URL=https://your-custom-catalog.json
 
 # Optional: Enable debug logging
 VITE_DEBUG_MODE=true
+
+# Optional: App base URL for share links
+VITE_APP_BASE_URL=https://browserbattlebench.vercel.app
 ```
+
+For Vercel serverless APIs (`/api/report`, `/api/share/:id`, `/api/og/:id.png`, `/api/leaderboard/global`), configure these project-level environment variables:
+
+```env
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+APP_BASE_URL=https://browserbattlebench.vercel.app
+BBB_UPLOAD_LIMIT=20
+BBB_UPLOAD_WINDOW_MINUTES=10
+BBB_RATE_LIMIT_SALT=optional_random_string
+```
+
+Run SQL migration before first deploy:
+
+`/Volumes/Hoh/openclaw_isolation/workspace/projects/browser-battle-bench/supabase/migrations/20260222_000001_bbb_reports_public.sql`
 
 ### Vite Configuration
 

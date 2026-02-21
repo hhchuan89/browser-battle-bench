@@ -33,7 +33,10 @@ describe('social share builder', () => {
   })
 
   it('builds expected platform targets', () => {
-    const targets = buildSocialShareTargets(payload)
+    const targets = buildSocialShareTargets(
+      payload,
+      'https://browserbattlebench.vercel.app/api/share/abc'
+    )
     expect(targets).toHaveLength(6)
     expect(targets.map((target) => target.id)).toEqual([
       'x',
@@ -44,6 +47,7 @@ describe('social share builder', () => {
       'whatsapp',
     ])
     expect(targets[0].url).toContain('twitter.com/intent/tweet')
+    expect(targets[0].url).toContain(encodeURIComponent('/api/share/abc'))
     expect(targets[1].url).toContain('facebook.com/sharer')
     expect(targets[2].url).toContain('linkedin.com/sharing/share-offsite')
   })

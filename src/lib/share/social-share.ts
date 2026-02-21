@@ -36,10 +36,14 @@ export const buildSocialShareText = (payload: ShareResultPayload): string =>
   `BBB ${modeLabel(payload.mode)} | ${payload.badgeText} ${payload.grade} in ${payload.scenarioName}. Can you beat this run?`
 
 export const buildSocialShareTargets = (
-  payload: ShareResultPayload
+  payload: ShareResultPayload,
+  shareUrlOverride?: string
 ): SocialShareTarget[] => {
   const shareText = buildSocialShareText(payload)
-  const shareUrl = payload.challengeUrl
+  const shareUrl =
+    (shareUrlOverride && shareUrlOverride.trim()) ||
+    payload.shareUrl ||
+    payload.challengeUrl
   const encodedText = encodeURIComponent(shareText)
   const encodedUrl = encodeURIComponent(shareUrl)
 

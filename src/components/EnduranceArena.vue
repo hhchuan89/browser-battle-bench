@@ -7,6 +7,9 @@ import { getCurrentMemory, formatMemory, calculateLeakRate } from '../services/p
 import { loadHardwareSnapshot } from '@/lib/hardware-snapshot';
 import { getSelectedModelId } from '@/lib/settings-store';
 import { buildStressSharePayload } from '@/lib/share/share-payload';
+import { publishReport } from '@/lib/share/publish-report';
+import { buildStressPublishRequest } from '@/lib/share/publish-normalizers';
+import type { PublishedShareLinks } from '@/lib/share/publish-types';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
@@ -31,6 +34,7 @@ const resolveScenarioId = (scenarioId: string): string =>
 const selectedScenarioId = ref(resolveScenarioId(props.defaultScenarioId));
 const hoveredBar = ref<{ index: number; value: string; round: number } | null>(null);
 const showTimestamp = ref(true);
+const publishedShareLinks = ref<PublishedShareLinks | null>(null);
 
 const selectedScenario = computed(() => 
   enduranceScenarios.find(s => s.id === selectedScenarioId.value)
@@ -64,11 +68,36 @@ const stressSharePayload = computed(() => {
   });
 });
 
+const publishStressShare = async (): Promise<PublishedShareLinks> => {
+  if (publishedShareLinks.value) return publishedShareLinks.value;
+  if (!stressSharePayload.value || !finalReport.value) {
+    throw new Error('Stress result is not ready for publishing.');
+  }
+
+  const request = buildStressPublishRequest({
+    payload: stressSharePayload.value,
+    report: finalReport.value,
+    tier: loadHardwareSnapshot()?.tier,
+  });
+  const links = await publishReport(request);
+  publishedShareLinks.value = links;
+  return links;
+};
+
 watch(
   () => props.defaultScenarioId,
   (value) => {
     if (value) {
       selectedScenarioId.value = resolveScenarioId(value);
+    }
+  }
+);
+
+watch(
+  () => enduranceStore.session.status,
+  (status) => {
+    if (status === 'IDLE') {
+      publishedShareLinks.value = null;
     }
   }
 );
@@ -79,6 +108,7 @@ const canStart = computed(() =>
 
 async function startTest() {
   if (!selectedScenario.value) return;
+  publishedShareLinks.value = null;
   await enduranceStore.startTest(selectedScenario.value);
 }
 
@@ -457,6 +487,7 @@ function getLatencyBarColor(durationMs: number): string {
               <ShareResultActions
                 v-if="stressSharePayload"
                 :payload="stressSharePayload"
+                :publish-report="publishStressShare"
                 :show-next="true"
                 next-label="Leaderboard"
                 :next-to="stressSharePayload.nextRoute || '/leaderboard'"

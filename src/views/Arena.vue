@@ -11,6 +11,9 @@ import { STORAGE_KEYS } from '@/lib/storage-keys'
 import { loadHardwareSnapshot } from '@/lib/hardware-snapshot'
 import { parseChallengeParams } from '@/lib/share/share-link'
 import { buildArenaSharePayload } from '@/lib/share/share-payload'
+import { publishReport } from '@/lib/share/publish-report'
+import { buildArenaPublishRequest } from '@/lib/share/publish-normalizers'
+import type { PublishedShareLinks } from '@/lib/share/publish-types'
 import ShareResultActions from '@/components/shared/ShareResultActions.vue'
 import { z } from 'zod'
 
@@ -20,6 +23,7 @@ const battleStatus = ref<'idle' | 'loading' | 'streaming' | 'scoring' | 'complet
 const error = ref<string | null>(null)
 const challengeHint = ref<string | null>(null)
 const arenaRunRef = ref<string | null>(null)
+const publishedShareLinks = ref<PublishedShareLinks | null>(null)
 const route = useRoute()
 
 // Streaming output
@@ -66,6 +70,7 @@ const availableModels = [
 const startBattle = async () => {
   error.value = null
   arenaRunRef.value = null
+  publishedShareLinks.value = null
   outputText.value = ''
   scoreResult.value = null
   resetValidator()
@@ -132,6 +137,7 @@ const startBattle = async () => {
 const resetBattle = () => {
   battleStatus.value = 'idle'
   arenaRunRef.value = null
+  publishedShareLinks.value = null
   outputText.value = ''
   scoreResult.value = null
   error.value = null
@@ -161,6 +167,23 @@ const arenaSharePayload = computed(() => {
     },
   })
 })
+
+const publishArenaShare = async (): Promise<PublishedShareLinks> => {
+  if (publishedShareLinks.value) return publishedShareLinks.value
+  if (!arenaSharePayload.value || !scoreResult.value) {
+    throw new Error('Arena result is not ready for publishing.')
+  }
+
+  const hardware = loadHardwareSnapshot()
+  const request = buildArenaPublishRequest({
+    payload: arenaSharePayload.value,
+    score: scoreResult.value,
+    tier: hardware?.tier,
+  })
+  const links = await publishReport(request)
+  publishedShareLinks.value = links
+  return links
+}
 
 onMounted(() => {
   const parsed = parseChallengeParams(route.query)
@@ -347,6 +370,7 @@ onMounted(() => {
           <ShareResultActions
             v-if="arenaSharePayload"
             :payload="arenaSharePayload"
+            :publish-report="publishArenaShare"
             :show-next="true"
             next-label="Next Challenge"
             next-to="/quick"

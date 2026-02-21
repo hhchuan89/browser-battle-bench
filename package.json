@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.78",
+    "@vercel/og": "^0.8.6",
     "@vueuse/core": "^14.2.1",
     "chart.js": "^4.5.1",
     "idb": "^8.0.3",
     "pinia": "^2.3.1",
     "qrcode": "^1.5.4",
+    "react": "^18.3.1",
     "vue": "^3.4.19",
     "vue-router": "^4.6.4",
     "zod": "^3.25.76"
