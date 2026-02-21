@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
       return badRequest(res, parsed.error)
     }
 
-    const limiter = await enforceUploadRateLimit(req, parsed.value)
+    const limiter = await enforceUploadRateLimit(req)
     if (!limiter.allowed) {
       return tooManyRequests(res, limiter.reason || 'Too many requests')
     }

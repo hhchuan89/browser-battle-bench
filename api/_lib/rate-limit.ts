@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import type { PublishReportInput } from './contracts'
 import { getClientIp } from './http'
 import { loadServerEnv } from './env'
 import { SupabaseRestError, supabaseRest } from './supabase'
@@ -41,8 +40,7 @@ const isCurrentWindow = (windowStart: string, windowMinutes: number): boolean =>
 }
 
 export const enforceUploadRateLimit = async (
-  req: any,
-  payload: PublishReportInput
+  req: any
 ): Promise<{ allowed: boolean; reason?: string }> => {
   const env = loadServerEnv()
   const ip = getClientIp(req)
