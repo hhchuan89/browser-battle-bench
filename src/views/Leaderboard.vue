@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { loadRunHistory, type RunHistoryEntry } from '@/lib/run-history'
+import {
+  loadRemoteLeaderboardEntries,
+  loadRemoteSourcesFromSettings,
+  parseGistSourceInput,
+  type RemoteRunEntry,
+} from '@/lib/gist-leaderboard'
+import {
+  getGistAuth,
+  getGistLeaderboardSources,
+  setGistLeaderboardSources,
+} from '@/lib/settings-store'
 
 interface LeaderboardRow {
   key: string
@@ -15,21 +26,61 @@ interface LeaderboardRow {
 }
 
 const entries = ref<RunHistoryEntry[]>([])
+const remoteEntries = ref<RemoteRunEntry[]>([])
+const remoteStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const remoteError = ref<string | null>(null)
+const sourceInput = ref(
+  getGistLeaderboardSources()
+    .map((source) => source.id)
+    .join('\n')
+)
 
 const refreshLeaderboard = () => {
   entries.value = loadRunHistory()
 }
 
-const totalRuns = computed(() => entries.value.length)
+const refreshRemoteLeaderboard = async () => {
+  const sources = parseGistSourceInput(sourceInput.value)
+  setGistLeaderboardSources(sources.map((id) => ({ id })))
+
+  if (sources.length === 0) {
+    remoteEntries.value = []
+    remoteStatus.value = 'idle'
+    remoteError.value = null
+    return
+  }
+
+  remoteStatus.value = 'loading'
+  remoteError.value = null
+  try {
+    const auth = getGistAuth()
+    remoteEntries.value = await loadRemoteLeaderboardEntries(
+      sources,
+      auth?.accessToken
+    )
+    remoteStatus.value = 'ready'
+  } catch (error) {
+    remoteError.value = error instanceof Error ? error.message : String(error)
+    remoteStatus.value = 'error'
+  }
+}
+
+const combinedEntries = computed<RunHistoryEntry[]>(() => [
+  ...entries.value,
+  ...remoteEntries.value,
+])
+
+const totalRuns = computed(() => combinedEntries.value.length)
+const totalRemoteRuns = computed(() => remoteEntries.value.length)
 const bestPassRateOverall = computed(() => {
-  if (entries.value.length === 0) return 0
-  return Math.max(...entries.value.map((entry) => entry.passRate))
+  if (combinedEntries.value.length === 0) return 0
+  return Math.max(...combinedEntries.value.map((entry) => entry.passRate))
 })
 
 const leaderboardRows = computed<LeaderboardRow[]>(() => {
   const grouped = new Map<string, RunHistoryEntry[]>()
 
-  for (const entry of entries.value) {
+  for (const entry of combinedEntries.value) {
     const key = `${entry.mode}:${entry.scenarioId}`
     const list = grouped.get(key) || []
     list.push(entry)
@@ -89,6 +140,11 @@ const formatDateTime = (iso: string) => {
 }
 
 onMounted(refreshLeaderboard)
+onMounted(() => {
+  if (loadRemoteSourcesFromSettings().length > 0) {
+    void refreshRemoteLeaderboard()
+  }
+})
 </script>
 
 <template>
@@ -102,12 +158,20 @@ onMounted(refreshLeaderboard)
       <div class="border border-green-800 rounded-lg p-4 mb-6">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 class="text-xl font-bold">Local Leaderboard</h2>
-          <button
-            class="bg-green-800 hover:bg-green-700 text-green-100 text-sm px-3 py-1 rounded"
-            @click="refreshLeaderboard"
-          >
-            Refresh
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button
+              class="bg-green-800 hover:bg-green-700 text-green-100 text-sm px-3 py-1 rounded"
+              @click="refreshLeaderboard"
+            >
+              Refresh Local
+            </button>
+            <button
+              class="bg-cyan-800 hover:bg-cyan-700 text-cyan-100 text-sm px-3 py-1 rounded"
+              @click="refreshRemoteLeaderboard"
+            >
+              Refresh Remote
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
@@ -125,8 +189,25 @@ onMounted(refreshLeaderboard)
           </div>
           <div class="border border-green-900 rounded p-3">
             <p class="text-green-600">Data Source</p>
-            <p class="text-xl font-bold">Local</p>
+            <p class="text-xl font-bold">
+              {{ totalRemoteRuns > 0 ? 'Local + Remote' : 'Local' }}
+            </p>
           </div>
+        </div>
+
+        <div class="border border-green-900 rounded p-4 text-sm mb-4 space-y-2">
+          <p class="text-green-500 font-bold">Remote Leaderboard Sources</p>
+          <textarea
+            v-model="sourceInput"
+            rows="3"
+            class="w-full bg-black border border-green-900 text-green-200 p-2 rounded text-sm"
+            placeholder="Paste gist IDs or gist URLs, separated by commas or new lines."
+          ></textarea>
+          <div class="flex items-center justify-between text-xs text-green-600">
+            <span>Remote status: {{ remoteStatus }}</span>
+            <span v-if="totalRemoteRuns > 0">Remote runs: {{ totalRemoteRuns }}</span>
+          </div>
+          <p v-if="remoteError" class="text-red-400">Remote error: {{ remoteError }}</p>
         </div>
 
         <div v-if="topRows.length === 0" class="border border-green-900 rounded p-8 text-center">

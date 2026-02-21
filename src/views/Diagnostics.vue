@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { analyzeRunDrift, type DriftAnalysisSummary } from '@/lib/drift-analysis'
+import { buildDriftDiff, type DriftDiff } from '@/lib/drift-diff'
 import { loadRunHistory } from '@/lib/run-history'
 import { getSelectedModelId } from '@/lib/settings-store'
 
@@ -23,6 +24,8 @@ const driftSummary = ref<DriftAnalysisSummary>({
   overallConsistency: 100,
   unstableGroups: 0,
 })
+const selectedDriftKey = ref<string | null>(null)
+const driftDiff = ref<DriftDiff | null>(null)
 
 const runDiagnostics = async () => {
   isChecking.value = true
@@ -38,7 +41,16 @@ const runDiagnostics = async () => {
   }
 
   diagnostics.value.hasWebGPU = 'gpu' in navigator
-  driftSummary.value = analyzeRunDrift(loadRunHistory())
+  const runHistory = loadRunHistory()
+  driftSummary.value = analyzeRunDrift(runHistory)
+  if (!selectedDriftKey.value && driftSummary.value.groups.length > 0) {
+    selectedDriftKey.value = driftSummary.value.groups[0].key
+  }
+  if (selectedDriftKey.value) {
+    driftDiff.value = buildDriftDiff(runHistory, selectedDriftKey.value)
+  } else {
+    driftDiff.value = null
+  }
 
   if (diagnostics.value.hasWebGPU) {
     try {
@@ -65,6 +77,11 @@ const runDiagnostics = async () => {
 onMounted(() => {
   runDiagnostics()
 })
+
+const selectDriftGroup = (key: string) => {
+  selectedDriftKey.value = key
+  driftDiff.value = buildDriftDiff(loadRunHistory(), key)
+}
 </script>
 
 <template>
@@ -176,6 +193,12 @@ onMounted(() => {
             <p class="text-xs text-green-600 mb-2">
               {{ group.mode }} · {{ group.runs }} runs
             </p>
+            <button
+              class="text-xs bg-green-900 text-green-200 px-2 py-1 rounded mb-2"
+              @click="selectDriftGroup(group.key)"
+            >
+              View Diff
+            </button>
             <div class="grid grid-cols-3 gap-2 text-sm">
               <div>
                 <p class="text-green-500">Consistency</p>
@@ -191,6 +214,45 @@ onMounted(() => {
               </div>
             </div>
           </article>
+        </div>
+      </div>
+
+      <div class="mt-6 border border-green-800 rounded-lg p-6 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">🧩 Drift Diff</h2>
+          <p class="text-sm text-green-500">
+            Latest vs previous run
+          </p>
+        </div>
+
+        <div v-if="!driftDiff" class="text-sm text-green-500">
+          Select a drift group to inspect changes between the latest runs.
+        </div>
+
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div class="border border-green-900 rounded p-3">
+            <p class="text-green-500">Scenario</p>
+            <p class="font-bold">{{ driftDiff.scenarioName }}</p>
+            <p class="text-green-600 text-xs mt-1">{{ driftDiff.mode }}</p>
+          </div>
+          <div class="border border-green-900 rounded p-3">
+            <p class="text-green-500">Pass Rate Delta</p>
+            <p class="font-bold">{{ driftDiff.deltaPassRate.toFixed(1) }}%</p>
+            <p class="text-green-600 text-xs mt-1">
+              Score Delta:
+              {{ driftDiff.deltaScorePct !== null ? `${driftDiff.deltaScorePct.toFixed(1)}%` : 'N/A' }}
+            </p>
+          </div>
+          <div class="border border-green-900 rounded p-3">
+            <p class="text-green-500">Latest Run</p>
+            <p class="font-bold">{{ driftDiff.latest.passRate.toFixed(1) }}% pass</p>
+            <p class="text-green-600 text-xs mt-1">{{ driftDiff.latest.completedAt }}</p>
+          </div>
+          <div class="border border-green-900 rounded p-3">
+            <p class="text-green-500">Previous Run</p>
+            <p class="font-bold">{{ driftDiff.previous.passRate.toFixed(1) }}% pass</p>
+            <p class="text-green-600 text-xs mt-1">{{ driftDiff.previous.completedAt }}</p>
+          </div>
         </div>
       </div>
 

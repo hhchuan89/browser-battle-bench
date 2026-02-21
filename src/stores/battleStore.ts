@@ -205,6 +205,31 @@ export const useBattleStore = defineStore('battle', () => {
   }
 
   /**
+   * Run deterministic drift harness (repeat same scenario N times).
+   */
+  async function runDriftHarness(
+    scenario: BattleScenario,
+    runs = 5,
+    onProgress?: (runIndex: number, totalRuns: number) => void
+  ): Promise<Array<BBBReportBundle | null>> {
+    if (isProcessingRound.value || session.value.status === 'FIGHTING') {
+      throw new Error('Battle already in progress.')
+    }
+
+    const bundles: Array<BBBReportBundle | null> = []
+
+    for (let i = 0; i < runs; i += 1) {
+      resetBattle()
+      await startBattle(scenario)
+      const bundle = await generateReportBundle()
+      bundles.push(bundle)
+      onProgress?.(i + 1, runs)
+    }
+
+    return bundles
+  }
+
+  /**
    * Execute the next round in the queue
    */
   async function nextRound() {
@@ -437,6 +462,7 @@ export const useBattleStore = defineStore('battle', () => {
     exportLatestReportBundle,
     latestReportBundle,
     getRoundResult,
-    getChallengeResult
+    getChallengeResult,
+    runDriftHarness
   };
 });

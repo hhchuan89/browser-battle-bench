@@ -300,6 +300,11 @@ commit_sha='none'
 if [[ "$PUSH_STATUS" == "OK" && "$PRODUCT_STATUS" == "PASS" ]]; then
   git add -A
   git reset --quiet -- plan-job || true
+  # Guard against PATs without workflow scope causing push rejection.
+  if [[ "${BBB_SKIP_WORKFLOW_COMMITS:-1}" == "1" ]]; then
+    git reset --quiet -- .github/workflows || true
+    append_note 'workflow files unstaged by push reliability guard (BBB_SKIP_WORKFLOW_COMMITS=1)'
+  fi
   if ! git diff --cached --quiet; then
     if git commit -m "chore: automated full cycle ${TS}" >"${LOG_DIR}/git_commit.log" 2>&1; then
       commit_sha="$(git rev-parse --short HEAD)"
