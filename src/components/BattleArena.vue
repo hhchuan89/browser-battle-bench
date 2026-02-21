@@ -244,11 +244,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useBattleStore } from '../stores/battleStore';
 import { useSystemStore } from '../stores/systemStore';
 import { logicTrapsLevel1, logicTrapsGrouped } from '../data/traps';
 import type { BattleScenario } from '../types/battle';
+import { isScenarioCompatibleForArenaView } from '@/lib/battle-session';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
@@ -317,6 +318,21 @@ const timeLimitSeconds = computed(() =>
 const allChallenges = computed(() =>
   scenarioCatalog.value.flatMap((scenario) => scenario.challenges)
 );
+
+const getAllowedScenarioIds = () => scenarioCatalog.value.map((scenario) => scenario.id);
+
+const ensureModeScopedSession = () => {
+  if (
+    !isScenarioCompatibleForArenaView(
+      battleStore.currentScenario,
+      props.mode,
+      getAllowedScenarioIds()
+    )
+  ) {
+    battleStore.resetBattle();
+    selectedScenario.value = resolveScenarioSelection();
+  }
+};
 
 const currentRound = computed(() => {
   if (isComplete.value) return battleStore.session.results.length;
@@ -508,6 +524,19 @@ watch(isComplete, (complete) => {
   if (complete) {
     showResults.value = true;
   }
+});
+
+watch(
+  () => props.mode,
+  () => {
+    if (!isFighting.value) {
+      ensureModeScopedSession();
+    }
+  }
+);
+
+onMounted(() => {
+  ensureModeScopedSession();
 });
 
 onBeforeUnmount(() => {
