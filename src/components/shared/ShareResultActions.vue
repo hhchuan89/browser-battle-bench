@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ShareResultPayload } from '@/types/share'
 import { createShareCardFile } from '@/lib/share/share-card-image'
+import {
+  buildSocialShareTargets,
+  type SocialShareTarget,
+} from '@/lib/share/social-share'
 
 const props = withDefaults(
   defineProps<{
@@ -29,6 +33,8 @@ const emit = defineEmits<{
 const router = useRouter()
 const isBusy = ref(false)
 const statusText = ref('')
+const showSocialMenu = ref(false)
+const socialTargets = computed(() => buildSocialShareTargets(props.payload))
 
 const getCardFile = async (): Promise<File | null> => {
   return createShareCardFile(props.payload)
@@ -84,54 +90,40 @@ const downloadCard = async () => {
 const copyChallengeLink = async () => {
   const ok = await copyText(props.payload.challengeUrl)
   statusText.value = ok ? 'Challenge link copied.' : 'Failed to copy challenge link.'
+  showSocialMenu.value = false
   if (ok) emit('link-copied')
 }
 
 const copyShareLink = async () => {
   const ok = await copyText(props.payload.shareUrl)
   statusText.value = ok ? 'Share link copied.' : 'Failed to copy share link.'
+  showSocialMenu.value = false
   if (ok) emit('link-copied')
 }
 
-const shareResult = async () => {
-  if (isBusy.value) return
-  isBusy.value = true
+const toggleSocialShareMenu = () => {
+  showSocialMenu.value = !showSocialMenu.value
+  statusText.value = showSocialMenu.value
+    ? 'Choose a social platform.'
+    : ''
+}
 
-  const text = `${props.payload.badgeText} ${props.payload.grade} | ${props.payload.scenarioName}\n${props.payload.taunt}`
-  const url = props.payload.shareUrl
-  const title = `BBB ${props.payload.badgeText}`
-
-  try {
-    if (!navigator.share) {
-      await downloadCard()
-      return
-    }
-
-    const file = await getCardFile()
-    if (file && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        title,
-        text,
-        url,
-        files: [file],
-      })
-    } else {
-      await navigator.share({ title, text, url })
-    }
-    statusText.value = 'Shared successfully.'
-    emit('shared')
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    statusText.value = `Share fallback: ${reason}`
+const openSocialShare = (target: SocialShareTarget) => {
+  const popup = window.open(target.url, '_blank', 'noopener,noreferrer')
+  if (!popup) {
+    const reason = 'Unable to open share window. Please allow popups for this site.'
+    statusText.value = reason
     emit('error', reason)
-    await downloadCard()
-  } finally {
-    isBusy.value = false
+    return
   }
+  showSocialMenu.value = false
+  statusText.value = `Opened ${target.label} share in a new tab.`
+  emit('shared')
 }
 
 const goNext = () => {
   if (!props.nextTo) return
+  showSocialMenu.value = false
   router.push(props.nextTo)
   emit('next-click', props.nextTo)
 }
@@ -143,9 +135,9 @@ const goNext = () => {
       <button
         class="btn btn-primary btn-sm"
         :disabled="isBusy"
-        @click="shareResult"
+        @click="toggleSocialShareMenu"
       >
-        {{ isBusy ? 'Preparing...' : 'Share' }}
+        Share
       </button>
       <button
         class="btn btn-secondary btn-sm"
@@ -176,6 +168,26 @@ const goNext = () => {
       >
         {{ nextLabel }}
       </button>
+    </div>
+    <div
+      v-if="showSocialMenu"
+      class="rounded-lg border border-base-300 p-3 bg-base-200/50"
+    >
+      <p class="text-xs font-semibold mb-2">Social Media Share</p>
+      <div class="flex flex-wrap gap-2">
+        <button
+          v-for="target in socialTargets"
+          :key="target.id"
+          class="btn btn-outline btn-xs"
+          @click="openSocialShare(target)"
+        >
+          <span class="font-bold">{{ target.icon }}</span>
+          {{ target.label }}
+        </button>
+      </div>
+      <p class="text-[11px] text-base-content/60 mt-2">
+        Instagram/TikTok do not support direct web share prefill. Use Download Card for manual upload.
+      </p>
     </div>
     <p v-if="statusText" class="text-xs text-base-content/70">
       {{ statusText }}
