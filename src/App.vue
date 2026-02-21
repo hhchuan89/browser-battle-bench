@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 const navItems = [
-  { path: '/', label: 'Home', icon: '🏠' },
+  { path: '/', label: 'Home', icon: '🏟️' },
   { path: '/arena', label: 'Arena', icon: '⚔️' },
   { path: '/quick', label: 'Quick', icon: '⚡' },
   { path: '/gauntlet', label: 'Gauntlet', icon: '🥊' },

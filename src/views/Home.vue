@@ -71,12 +71,24 @@ const formatDuration = (durationMs: number) => {
           </div>
           
           <div class="flex items-center gap-2">
-            <span v-if="result?.ollamaAvailable !== undefined" class="text-xl">
-              {{ result?.ollamaAvailable ? '✅' : '❌' }}
+            <span v-if="result?.ollamaStatus !== undefined" class="text-xl">
+              {{
+                result?.ollamaStatus === 'connected'
+                  ? '✅'
+                  : result?.ollamaStatus === 'skipped-remote-https'
+                    ? '⚠️'
+                    : '❌'
+              }}
             </span>
             <span v-else class="animate-bounce">🔄</span>
             <span>Ollama Connection</span>
           </div>
+          <p
+            v-if="result?.ollamaHint"
+            class="text-xs text-yellow-400 ml-7"
+          >
+            {{ result.ollamaHint }}
+          </p>
         </div>
       </div>
       
@@ -97,7 +109,15 @@ const formatDuration = (durationMs: number) => {
             <div>{{ result.hasWebGPU ? '✅ Supported' : '❌ Not Available' }}</div>
             
             <div>GPU:</div>
-            <div>{{ result.gpuName }}</div>
+            <div>
+              {{ result.gpuName }}
+              <span
+                v-if="result.gpuStatus === 'webgl'"
+                class="text-xs text-yellow-400 ml-1"
+              >
+                (WebGL fallback)
+              </span>
+            </div>
             
             <div>VRAM:</div>
             <div>{{ result.vramGb }}GB</div>
@@ -106,11 +126,25 @@ const formatDuration = (durationMs: number) => {
             <div>{{ result.isMobile ? '📱 Yes' : '🖥️ No' }}</div>
             
             <div>Ollama:</div>
-            <div>{{ result.ollamaAvailable ? '✅ Connected' : '❌ Not Found' }}</div>
+            <div>
+              {{
+                result.ollamaStatus === 'connected'
+                  ? '✅ Connected'
+                  : result.ollamaStatus === 'skipped-remote-https'
+                    ? '⚠️ Skipped on hosted HTTPS'
+                    : '❌ Not Found'
+              }}
+            </div>
             
             <div v-if="result.ollamaModels.length">Models:</div>
             <div v-if="result.ollamaModels.length">{{ result.ollamaModels.join(', ') }}</div>
           </div>
+          <p
+            v-if="result.ollamaHint"
+            class="text-xs text-yellow-400 mt-2"
+          >
+            {{ result.ollamaHint }}
+          </p>
         </div>
         
         <!-- Action Buttons -->

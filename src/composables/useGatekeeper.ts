@@ -11,6 +11,9 @@ export interface GatekeeperResult {
   isMobile: boolean
   ollamaAvailable: boolean
   ollamaModels: string[]
+  gpuStatus: 'webgpu' | 'webgl' | 'unknown'
+  ollamaStatus: 'connected' | 'unreachable' | 'skipped-remote-https'
+  ollamaHint?: string
 }
 
 export function useGatekeeper() {
@@ -29,6 +32,29 @@ export function useGatekeeper() {
     }
     return true
   }
+
+  const detectWebglRenderer = (): string | null => {
+    if (typeof document === 'undefined') return null
+    try {
+      const canvas = document.createElement('canvas')
+      const gl =
+        canvas.getContext('webgl') ||
+        canvas.getContext('experimental-webgl')
+      if (!gl) return null
+      const debugInfo = (gl as WebGLRenderingContext).getExtension(
+        'WEBGL_debug_renderer_info'
+      )
+      if (!debugInfo) return null
+      const renderer = (gl as WebGLRenderingContext).getParameter(
+        debugInfo.UNMASKED_RENDERER_WEBGL
+      )
+      return typeof renderer === 'string' && renderer.trim()
+        ? renderer
+        : null
+    } catch {
+      return null
+    }
+  }
   
   const scan = async () => {
     isScanning.value = true
@@ -39,6 +65,7 @@ export function useGatekeeper() {
     // 2. GPU info
     let gpuName = 'Unknown'
     let vramGb = 0
+    let gpuStatus: GatekeeperResult['gpuStatus'] = 'unknown'
     if (hasWebGPU) {
       try {
         const adapter = await (navigator as any).gpu.requestAdapter()
@@ -47,6 +74,7 @@ export function useGatekeeper() {
             const info = await adapter.requestAdapterInfo()
             gpuName = info.deviceName
           }
+          gpuStatus = 'webgpu'
           // Estimate VRAM (unified memory for Apple Silicon)
           // Default estimate, refine based on device
           const ua = navigator.userAgent
@@ -65,6 +93,13 @@ export function useGatekeeper() {
         console.error('WebGPU error:', e)
       }
     }
+    if (gpuStatus === 'unknown') {
+      const webglRenderer = detectWebglRenderer()
+      if (webglRenderer) {
+        gpuName = webglRenderer
+        gpuStatus = 'webgl'
+      }
+    }
     
     // 3. Mobile detection
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -72,6 +107,8 @@ export function useGatekeeper() {
     // 4. Ollama detection
     let ollamaAvailable = false
     let ollamaModels: string[] = []
+    let ollamaStatus: GatekeeperResult['ollamaStatus'] = 'unreachable'
+    let ollamaHint: string | undefined
     if (shouldProbeOllama()) {
       try {
         const res = await fetch('http://localhost:11434/api/tags', { 
@@ -82,10 +119,14 @@ export function useGatekeeper() {
           ollamaAvailable = true
           const data = await res.json()
           ollamaModels = data.models?.map((m: any) => m.name) || []
+          ollamaStatus = 'connected'
         }
       } catch (e) {
         // Ollama not available
       }
+    } else {
+      ollamaStatus = 'skipped-remote-https'
+      ollamaHint = 'Hosted HTTPS pages cannot reliably probe local Ollama. Run BBB on localhost for direct detection.'
     }
     
     // 5. Tier assignment
@@ -102,7 +143,18 @@ export function useGatekeeper() {
       tier = 'B'
     }
     
-    result.value = { tier, hasWebGPU, gpuName, vramGb, isMobile, ollamaAvailable, ollamaModels }
+    result.value = {
+      tier,
+      hasWebGPU,
+      gpuName,
+      vramGb,
+      isMobile,
+      ollamaAvailable,
+      ollamaModels,
+      gpuStatus,
+      ollamaStatus,
+      ollamaHint,
+    }
     saveHardwareSnapshot({
       tier,
       gpu: gpuName,
