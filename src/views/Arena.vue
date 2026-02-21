@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useWebLLM } from '@/composables/useWebLLM'
 import { useStreamValidator } from '@/composables/useStreamValidator'
 import { useScorer } from '@/composables/useScorer'
@@ -7,12 +8,19 @@ import { usePersistence } from '@/composables/usePersistence'
 import { easySchemas, type SchemaDefinition } from '@/data/schemas/easy'
 import { getDefaultModelId } from '@/lib/settings-store'
 import { STORAGE_KEYS } from '@/lib/storage-keys'
+import { loadHardwareSnapshot } from '@/lib/hardware-snapshot'
+import { parseChallengeParams } from '@/lib/share/share-link'
+import { buildArenaSharePayload } from '@/lib/share/share-payload'
+import ShareResultActions from '@/components/shared/ShareResultActions.vue'
 import { z } from 'zod'
 
 // State
 const selectedSchema = ref<SchemaDefinition>(easySchemas[0])
 const battleStatus = ref<'idle' | 'loading' | 'streaming' | 'scoring' | 'complete'>('idle')
 const error = ref<string | null>(null)
+const challengeHint = ref<string | null>(null)
+const arenaRunRef = ref<string | null>(null)
+const route = useRoute()
 
 // Streaming output
 const outputText = ref('')
@@ -57,6 +65,7 @@ const availableModels = [
 // Start battle
 const startBattle = async () => {
   error.value = null
+  arenaRunRef.value = null
   outputText.value = ''
   scoreResult.value = null
   resetValidator()
@@ -110,6 +119,7 @@ const startBattle = async () => {
     )
 
     scoreResult.value = score
+    arenaRunRef.value = `arena-${Date.now()}`
     battleStatus.value = 'complete'
 
   } catch (e) {
@@ -121,6 +131,7 @@ const startBattle = async () => {
 // Reset battle
 const resetBattle = () => {
   battleStatus.value = 'idle'
+  arenaRunRef.value = null
   outputText.value = ''
   scoreResult.value = null
   error.value = null
@@ -129,6 +140,45 @@ const resetBattle = () => {
 
 // Validation state
 const validationState = computed(() => validatorResult.value)
+
+const hardwareLabel = computed(() => {
+  const snapshot = loadHardwareSnapshot()
+  return snapshot ? `GPU: ${snapshot.gpu}` : 'GPU: Unknown'
+})
+
+const arenaSharePayload = computed(() => {
+  if (!scoreResult.value) return null
+  return buildArenaSharePayload({
+    scenarioId: selectedSchema.value.id,
+    scenarioName: selectedSchema.value.name,
+    modelId: selectedModel.value,
+    runRef: arenaRunRef.value || `arena-${Date.now()}`,
+    hardwareLabel: hardwareLabel.value,
+    breakdown: {
+      formatCompliance: scoreResult.value.breakdown?.formatCompliance ?? 0,
+      fieldCompleteness: scoreResult.value.breakdown?.fieldCompleteness ?? 0,
+      responseEfficiency: scoreResult.value.breakdown?.responseEfficiency ?? 0,
+    },
+  })
+})
+
+onMounted(() => {
+  const parsed = parseChallengeParams(route.query)
+  if (!parsed || parsed.mode !== 'arena') return
+
+  if (parsed.modelId && availableModels.some((model) => model.id === parsed.modelId)) {
+    selectedModel.value = parsed.modelId
+  }
+  if (parsed.scenarioId) {
+    const matched = easySchemas.find((schema) => schema.id === parsed.scenarioId)
+    if (matched) {
+      selectedSchema.value = matched
+    }
+  }
+
+  const runRefText = parsed.runRef ? ` · run ${parsed.runRef}` : ''
+  challengeHint.value = `Challenge loaded: ${selectedSchema.value.name} · ${selectedModel.value}${runRefText}`
+})
 </script>
 
 <template>
@@ -138,6 +188,13 @@ const validationState = computed(() => validatorResult.value)
       <div class="mb-8">
         <h1 class="text-3xl font-bold mb-2">⚔️ Arena</h1>
         <p class="text-green-600">Quick Battle - Head-to-Head LLM Benchmarking</p>
+      </div>
+
+      <div
+        v-if="challengeHint"
+        class="mb-6 border border-cyan-700 bg-cyan-900/20 rounded-lg p-3 text-sm text-cyan-200"
+      >
+        {{ challengeHint }}
       </div>
 
       <!-- Error Display -->
@@ -286,12 +343,22 @@ const validationState = computed(() => validatorResult.value)
           </ul>
         </div>
 
-        <button 
-          @click="resetBattle"
-          class="mt-6 w-full py-3 bg-green-700 hover:bg-green-600 text-black font-bold rounded"
-        >
-          🔄 New Battle
-        </button>
+        <div class="mt-6 space-y-3">
+          <ShareResultActions
+            v-if="arenaSharePayload"
+            :payload="arenaSharePayload"
+            :show-next="true"
+            next-label="Next Challenge"
+            next-to="/quick"
+          />
+
+          <button
+            @click="resetBattle"
+            class="w-full py-3 bg-green-700 hover:bg-green-600 text-black font-bold rounded"
+          >
+            🔄 New Battle
+          </button>
+        </div>
       </div>
 
       <!-- Back Link -->

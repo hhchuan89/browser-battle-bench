@@ -231,6 +231,19 @@
               </div>
             </div>
           </div>
+
+          <div class="mb-4">
+            <ShareResultActions
+              v-if="battleSharePayload"
+              :payload="battleSharePayload"
+              :show-next="true"
+              :next-label="nextLabel"
+              :next-to="battleSharePayload.nextRoute || ''"
+            />
+            <p v-if="stressBlockedHint" class="text-xs text-warning text-center mt-2">
+              {{ stressBlockedHint }}
+            </p>
+          </div>
           
           <div class="modal-action justify-center">
             <button class="btn btn-primary" @click="showResults = false">Close</button>
@@ -250,9 +263,13 @@ import { useSystemStore } from '../stores/systemStore';
 import { logicTrapsLevel1, logicTrapsGrouped } from '../data/traps';
 import type { BattleScenario } from '../types/battle';
 import { isScenarioCompatibleForArenaView } from '@/lib/battle-session';
+import { loadHardwareSnapshot } from '@/lib/hardware-snapshot';
+import { getSelectedModelId } from '@/lib/settings-store';
+import { buildBattleSharePayload } from '@/lib/share/share-payload';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
+import ShareResultActions from './shared/ShareResultActions.vue';
 
 interface BattleArenaProps {
   scenarios?: BattleScenario[];
@@ -275,6 +292,7 @@ const isFlipping = ref(false);
 const displayScore = ref(0);
 const timedOut = ref(false);
 const remainingSeconds = ref<number | null>(null);
+const shareRunRef = ref<string | null>(null);
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
 const scenarioCatalog = computed<BattleScenario[]>(() =>
@@ -318,6 +336,52 @@ const timeLimitSeconds = computed(() =>
 const allChallenges = computed(() =>
   scenarioCatalog.value.flatMap((scenario) => scenario.challenges)
 );
+
+const hardwareSnapshot = computed(() => loadHardwareSnapshot());
+const isStressBlocked = computed(
+  () =>
+    props.mode === 'gauntlet' &&
+    (hardwareSnapshot.value?.tier === 'M' || hardwareSnapshot.value?.tier === 'F')
+);
+const hardwareLabel = computed(() =>
+  hardwareSnapshot.value ? `GPU: ${hardwareSnapshot.value.gpu}` : 'GPU: Unknown'
+);
+const nextLabel = computed(() =>
+  props.mode === 'gauntlet' && isStressBlocked.value
+    ? 'Next: Leaderboard'
+    : 'Next Challenge'
+);
+const stressBlockedHint = computed(() =>
+  props.mode === 'gauntlet' && isStressBlocked.value
+    ? 'Stress blocked on this device tier (M/F), skipping to Leaderboard.'
+    : ''
+);
+
+const battleSharePayload = computed(() => {
+  if (!isComplete.value || !battleStore.currentScenario || results.value.length === 0) {
+    return null;
+  }
+  if (props.mode !== 'quick' && props.mode !== 'gauntlet') {
+    return null;
+  }
+
+  const scenario = battleStore.currentScenario;
+  const runRef =
+    battleStore.latestReportBundle?.report.run_hash ||
+    shareRunRef.value ||
+    `${props.mode}-${Date.now()}`;
+
+  return buildBattleSharePayload({
+    mode: props.mode,
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    modelId: getSelectedModelId(),
+    runRef,
+    results: results.value,
+    hardwareLabel: hardwareLabel.value,
+    stressBlocked: isStressBlocked.value,
+  });
+});
 
 const getAllowedScenarioIds = () => scenarioCatalog.value.map((scenario) => scenario.id);
 
@@ -481,6 +545,7 @@ function startBattle() {
 function resetBattle() {
   timedOut.value = false;
   clearCountdown();
+  shareRunRef.value = null;
   battleStore.resetBattle();
   resetCountdown();
 }
@@ -522,6 +587,9 @@ async function downloadBBBReportBundle() {
 
 watch(isComplete, (complete) => {
   if (complete) {
+    if (!shareRunRef.value) {
+      shareRunRef.value = `${props.mode}-${Date.now()}`;
+    }
     showResults.value = true;
   }
 });

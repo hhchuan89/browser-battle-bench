@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import BattleArena from '@/components/BattleArena.vue'
 import { useSystemStore } from '@/stores/systemStore'
 import { quickBattle30sScenario } from '@/data/quickBattlePack'
+import { setSelectedModelId } from '@/lib/settings-store'
+import { parseChallengeParams } from '@/lib/share/share-link'
 
 const systemStore = useSystemStore()
+const route = useRoute()
+const challengeHint = ref<string | null>(null)
 
 const isEngineReady = computed(() => systemStore.isModelReady)
 const isEngineLoading = computed(() => systemStore.status.webLlmEngine === 'LOADING')
@@ -12,6 +17,17 @@ const isEngineLoading = computed(() => systemStore.status.webLlmEngine === 'LOAD
 const initializeEngine = async () => {
   await systemStore.initializeEngine()
 }
+
+onMounted(() => {
+  const parsed = parseChallengeParams(route.query)
+  if (!parsed || parsed.mode !== 'quick') return
+  if (parsed.modelId) {
+    setSelectedModelId(parsed.modelId)
+  }
+  challengeHint.value = `Challenge loaded: ${quickBattle30sScenario.name}${
+    parsed.modelId ? ` · ${parsed.modelId}` : ''
+  }`
+})
 </script>
 
 <template>
@@ -20,6 +36,13 @@ const initializeEngine = async () => {
       <div class="mb-6">
         <h1 class="text-3xl font-bold mb-2">⚡ Quick Battle</h1>
         <p class="text-green-600">3 Rounds, 30 Seconds, Zero Excuses</p>
+      </div>
+
+      <div
+        v-if="challengeHint"
+        class="mb-6 border border-cyan-700 bg-cyan-900/20 rounded-lg p-3 text-sm text-cyan-200"
+      >
+        {{ challengeHint }}
       </div>
 
       <div v-if="!isEngineReady" class="border border-green-800 rounded-lg p-6 bg-black/50">

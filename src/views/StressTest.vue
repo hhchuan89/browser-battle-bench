@@ -1,22 +1,45 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import EnduranceArena from '@/components/EnduranceArena.vue'
 import { useSystemStore } from '@/stores/systemStore'
 import { useGatekeeper } from '@/composables/useGatekeeper'
+import { enduranceScenarios } from '@/data/enduranceScenarios'
+import { setSelectedModelId } from '@/lib/settings-store'
+import { parseChallengeParams } from '@/lib/share/share-link'
 
 const systemStore = useSystemStore()
 const { isScanning, result, scan, tierLabel } = useGatekeeper()
+const route = useRoute()
 
 const isEngineReady = computed(() => systemStore.isModelReady)
 const isEngineLoading = computed(() => systemStore.status.webLlmEngine === 'LOADING')
 const scanComplete = ref(false)
 const confirmChecked = ref(false)
+const challengeHint = ref<string | null>(null)
+const preselectedScenarioId = ref('memory-leak-100')
 const isBlockedTier = computed(() => result.value?.tier === 'M' || result.value?.tier === 'F')
 const canInitialize = computed(
   () => scanComplete.value && confirmChecked.value && !isBlockedTier.value && !isEngineLoading.value
 )
 
 onMounted(() => {
+  const parsed = parseChallengeParams(route.query)
+  if (parsed && parsed.mode === 'stress') {
+    if (parsed.modelId) {
+      setSelectedModelId(parsed.modelId)
+    }
+    if (
+      parsed.scenarioId &&
+      enduranceScenarios.some((scenario) => scenario.id === parsed.scenarioId)
+    ) {
+      preselectedScenarioId.value = parsed.scenarioId
+    }
+    challengeHint.value = `Challenge loaded: ${
+      parsed.scenarioId || preselectedScenarioId.value
+    }${parsed.modelId ? ` · ${parsed.modelId}` : ''}`
+  }
+
   scan().then(() => {
     scanComplete.value = true
   })
@@ -33,6 +56,13 @@ const initializeEngine = async () => {
       <div class="mb-6">
         <h1 class="text-3xl font-bold mb-2">🔥 Stress Test</h1>
         <p class="text-green-600">Extended Endurance Benchmark</p>
+      </div>
+
+      <div
+        v-if="challengeHint"
+        class="mb-6 border border-cyan-700 bg-cyan-900/20 rounded-lg p-3 text-sm text-cyan-200"
+      >
+        {{ challengeHint }}
       </div>
 
       <div v-if="!isEngineReady" class="border border-green-800 rounded-lg p-6 bg-black/50 space-y-6">
@@ -110,7 +140,7 @@ const initializeEngine = async () => {
         </div>
       </div>
 
-      <EnduranceArena v-else />
+      <EnduranceArena v-else :default-scenario-id="preselectedScenarioId" />
     </div>
   </div>
 </template>

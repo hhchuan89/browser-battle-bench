@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import {
   clearRunHistory,
   loadRunHistory,
   type RunHistoryEntry,
 } from '@/lib/run-history'
+import { loadHardwareSnapshot } from '@/lib/hardware-snapshot'
+import { buildHistorySharePayload } from '@/lib/share/share-payload'
+import ShareResultActions from '@/components/shared/ShareResultActions.vue'
 
 const entries = ref<RunHistoryEntry[]>([])
 
@@ -51,6 +55,23 @@ const formatDuration = (durationMs: number) => {
 }
 
 onMounted(refreshHistory)
+
+const hardwareLabel = computed(() => {
+  const snapshot = loadHardwareSnapshot()
+  return snapshot ? `GPU: ${snapshot.gpu}` : 'GPU: Unknown'
+})
+
+const toStageRoute = (mode: RunHistoryEntry['mode']) => {
+  if (mode === 'quick') return '/quick'
+  if (mode === 'stress') return '/stress'
+  return '/gauntlet'
+}
+
+const buildEntrySharePayload = (entry: RunHistoryEntry) =>
+  buildHistorySharePayload({
+    entry,
+    hardwareLabel: hardwareLabel.value,
+  })
 </script>
 
 <template>
@@ -164,6 +185,16 @@ onMounted(refreshHistory)
                 <p class="text-green-600">Verdict</p>
                 <p class="font-bold">{{ entry.verdict || 'N/A' }}</p>
               </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2 items-center">
+              <ShareResultActions :payload="buildEntrySharePayload(entry)" />
+              <RouterLink
+                :to="toStageRoute(entry.mode)"
+                class="bg-green-900 hover:bg-green-800 text-green-100 text-xs px-3 py-2 rounded"
+              >
+                Open Stage
+              </RouterLink>
             </div>
           </article>
         </div>

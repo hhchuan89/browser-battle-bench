@@ -1,17 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useEnduranceStore } from '../stores/enduranceStore';
 import { useSystemStore } from '../stores/systemStore';
 import { enduranceScenarios } from '../data/enduranceScenarios';
 import { getCurrentMemory, formatMemory, calculateLeakRate } from '../services/performance/MemoryMonitor';
+import { loadHardwareSnapshot } from '@/lib/hardware-snapshot';
+import { getSelectedModelId } from '@/lib/settings-store';
+import { buildStressSharePayload } from '@/lib/share/share-payload';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
+import ShareResultActions from '@/components/shared/ShareResultActions.vue';
+
+interface EnduranceArenaProps {
+  defaultScenarioId?: string;
+}
+
+const props = withDefaults(defineProps<EnduranceArenaProps>(), {
+  defaultScenarioId: 'memory-leak-100',
+});
 
 const enduranceStore = useEnduranceStore();
 const systemStore = useSystemStore();
 
-const selectedScenarioId = ref('memory-leak-100');
+const resolveScenarioId = (scenarioId: string): string =>
+  enduranceScenarios.some((scenario) => scenario.id === scenarioId)
+    ? scenarioId
+    : 'memory-leak-100';
+
+const selectedScenarioId = ref(resolveScenarioId(props.defaultScenarioId));
 const hoveredBar = ref<{ index: number; value: string; round: number } | null>(null);
 const showTimestamp = ref(true);
 
@@ -29,6 +46,32 @@ const finalReport = computed(() => {
   if (!enduranceStore.isComplete) return null;
   return enduranceStore.generateReport();
 });
+
+const hardwareLabel = computed(() => {
+  const snapshot = loadHardwareSnapshot();
+  return snapshot ? `GPU: ${snapshot.gpu}` : 'GPU: Unknown';
+});
+
+const stressSharePayload = computed(() => {
+  if (!finalReport.value || !selectedScenario.value) return null;
+  return buildStressSharePayload({
+    scenarioId: selectedScenario.value.id,
+    scenarioName: selectedScenario.value.name,
+    modelId: getSelectedModelId(),
+    runRef: `stress-${Date.parse(finalReport.value.timestamp) || Date.now()}`,
+    report: finalReport.value,
+    hardwareLabel: hardwareLabel.value,
+  });
+});
+
+watch(
+  () => props.defaultScenarioId,
+  (value) => {
+    if (value) {
+      selectedScenarioId.value = resolveScenarioId(value);
+    }
+  }
+);
 
 const canStart = computed(() => 
   systemStore.isModelReady && enduranceStore.session.status === 'IDLE'
@@ -410,6 +453,15 @@ function getLatencyBarColor(durationMs: number): string {
             >
               📥 Download JSON Report
             </button>
+            <div class="mt-3">
+              <ShareResultActions
+                v-if="stressSharePayload"
+                :payload="stressSharePayload"
+                :show-next="true"
+                next-label="Next Challenge"
+                :next-to="stressSharePayload.nextRoute || '/leaderboard'"
+              />
+            </div>
           </div>
         </FadeTransition>
       </div>

@@ -31,6 +31,15 @@ test.describe('BBB smoke routes', () => {
     ).toBeVisible()
   })
 
+  test('quick accepts challenge deep link parameters', async ({ page }) => {
+    await page.goto(
+      '/quick?challenge=1&mode=quick&scenario=quick-battle-30s&model=Llama-3.2-1B-Instruct-q4f16_1-MLC'
+    )
+    await expect(
+      page.getByText(/Challenge loaded: Quick Battle 30s/i)
+    ).toBeVisible()
+  })
+
   test('gauntlet renders functional entry state', async ({ page }) => {
     await page.goto('/gauntlet')
     await expect(page.getByRole('heading', { name: /Gauntlet/i })).toBeVisible()
@@ -39,12 +48,26 @@ test.describe('BBB smoke routes', () => {
     ).toBeVisible()
   })
 
+  test('gauntlet accepts challenge deep link parameters', async ({ page }) => {
+    await page.goto(
+      '/gauntlet?challenge=1&mode=gauntlet&scenario=logic-traps-l1&model=Llama-3.2-1B-Instruct-q4f16_1-MLC'
+    )
+    await expect(page.getByText(/Challenge loaded:/i)).toBeVisible()
+  })
+
   test('stress renders functional entry state', async ({ page }) => {
     await page.goto('/stress')
     await expect(page.getByRole('heading', { name: /Stress Test/i })).toBeVisible()
     await expect(
       page.getByRole('button', { name: /Initialize Engine|Start/i })
     ).toBeVisible()
+  })
+
+  test('stress accepts challenge deep link parameters', async ({ page }) => {
+    await page.goto(
+      '/stress?challenge=1&mode=stress&scenario=quick-smoke&model=Llama-3.2-1B-Instruct-q4f16_1-MLC'
+    )
+    await expect(page.getByText(/Challenge loaded:/i)).toBeVisible()
   })
 
   test('leaderboard renders local leaderboard panel', async ({ page }) => {
