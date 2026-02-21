@@ -5,6 +5,7 @@ import type { ShareResultPayload } from '@/types/share'
 import { createShareCardFile } from '@/lib/share/share-card-image'
 import {
   buildSocialShareTargets,
+  buildSocialShareText,
   type SocialShareTarget,
 } from '@/lib/share/social-share'
 
@@ -38,6 +39,23 @@ const socialTargets = computed(() => buildSocialShareTargets(props.payload))
 
 const getCardFile = async (): Promise<File | null> => {
   return createShareCardFile(props.payload)
+}
+
+const copyImageToClipboard = async (file: File): Promise<boolean> => {
+  const clipboardItemCtor = (
+    globalThis as typeof globalThis & { ClipboardItem?: new (items: Record<string, Blob>) => ClipboardItem }
+  ).ClipboardItem
+  if (!navigator.clipboard?.write || !clipboardItemCtor) return false
+
+  try {
+    const item = new clipboardItemCtor({
+      [file.type || 'image/png']: file,
+    })
+    await navigator.clipboard.write([item])
+    return true
+  } catch {
+    return false
+  }
 }
 
 const copyText = async (text: string): Promise<boolean> => {
@@ -108,7 +126,8 @@ const toggleSocialShareMenu = () => {
     : ''
 }
 
-const openSocialShare = (target: SocialShareTarget) => {
+const openSocialShare = async (target: SocialShareTarget) => {
+  if (isBusy.value) return
   const popup = window.open(target.url, '_blank', 'noopener,noreferrer')
   if (!popup) {
     const reason = 'Unable to open share window. Please allow popups for this site.'
@@ -116,9 +135,33 @@ const openSocialShare = (target: SocialShareTarget) => {
     emit('error', reason)
     return
   }
+
+  isBusy.value = true
   showSocialMenu.value = false
-  statusText.value = `Opened ${target.label} share in a new tab.`
-  emit('shared')
+  try {
+    const [file, textCopied] = await Promise.all([
+      getCardFile(),
+      copyText(`${buildSocialShareText(props.payload)}\n${props.payload.challengeUrl}`),
+    ])
+    const imageCopied = file ? await copyImageToClipboard(file) : false
+
+    if (imageCopied && textCopied) {
+      statusText.value = `Opened ${target.label}. Card image + caption copied. Paste with Cmd+V.`
+    } else if (imageCopied) {
+      statusText.value = `Opened ${target.label}. Card image copied. Paste with Cmd+V.`
+    } else if (textCopied) {
+      statusText.value = `Opened ${target.label}. Caption copied. Upload card manually if needed.`
+    } else {
+      statusText.value = `Opened ${target.label}. Use Download Card to attach the image manually.`
+    }
+    emit('shared')
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    statusText.value = `Share prep failed: ${reason}`
+    emit('error', reason)
+  } finally {
+    isBusy.value = false
+  }
 }
 
 const goNext = () => {
