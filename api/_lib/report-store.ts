@@ -85,6 +85,55 @@ const isSchemaDriftError = (error: unknown): boolean => {
   )
 }
 
+const extractMissingColumnName = (error: unknown): string | null => {
+  const message = readErrorMessage(error)
+
+  const patterns = [
+    /column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i,
+    /could not find the\s+'([a-zA-Z0-9_]+)'\s+column/i,
+    /record\s+"?new"?\s+has no field\s+"?([a-zA-Z0-9_]+)"?/i,
+  ]
+
+  for (const pattern of patterns) {
+    const matched = message.match(pattern)
+    if (matched?.[1]) return matched[1]
+  }
+
+  return null
+}
+
+const insertWithColumnPruning = async (
+  initialRow: Record<string, unknown>
+): Promise<PublicReportRecord> => {
+  const candidate: Record<string, unknown> = { ...initialRow }
+  const removed = new Set<string>()
+  let lastError: unknown = null
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    try {
+      return await insertAndRead(candidate)
+    } catch (error) {
+      lastError = error
+      if (!isSchemaDriftError(error)) {
+        throw error
+      }
+
+      const missingColumn = extractMissingColumnName(error)
+      if (!missingColumn || !(missingColumn in candidate) || removed.has(missingColumn)) {
+        break
+      }
+
+      removed.add(missingColumn)
+      delete candidate[missingColumn]
+    }
+  }
+
+  if (lastError) {
+    throw lastError
+  }
+  throw new Error('Unable to insert report after schema-pruning fallback')
+}
+
 const buildLegacyRawJson = (payload: PublishReportInput): Record<string, unknown> => ({
   mode: payload.mode,
   scenario_id: payload.scenario_id,
@@ -386,11 +435,24 @@ export const insertReport = async (payload: PublishReportInput): Promise<PublicR
   }
 
   const fullInsertRow = buildFullInsertRow(payload)
+  const adaptiveRow: Record<string, unknown> = {
+    ...fullInsertRow,
+    raw_json: buildLegacyRawJson(payload),
+  }
+
   try {
-    return await insertAndRead(fullInsertRow)
+    return await insertAndRead(adaptiveRow)
   } catch (error) {
     if (!isSchemaDriftError(error)) {
       throw error
+    }
+  }
+
+  try {
+    return await insertWithColumnPruning(adaptiveRow)
+  } catch (error) {
+    if (!isSchemaDriftError(error)) {
+      // continue down fallback chain for partially upgraded schemas
     }
   }
 

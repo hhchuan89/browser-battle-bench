@@ -136,6 +136,11 @@ describe('api report-store', () => {
           message: 'column "device_id" does not exist',
         })
       )
+      .mockRejectedValueOnce(
+        new SupabaseRestError(400, 'column does not exist', {
+          message: 'column "device_id" does not exist',
+        })
+      )
       .mockResolvedValueOnce({
         data: [
           makeRow({
@@ -151,15 +156,56 @@ describe('api report-store', () => {
     const result = await insertReport(basePayload)
 
     expect(result.id).toBe('11111111-1111-4111-8111-111111111111')
-    expect(supabaseRestMock).toHaveBeenCalledTimes(3)
+    expect(supabaseRestMock).toHaveBeenCalledTimes(4)
 
     const fullInsertBody = supabaseRestMock.mock.calls[1][1]?.body as Record<string, unknown>
     expect(fullInsertBody.canonical_model_id).toBe('llama-3.2-1b-q4f16')
 
-    const fallbackBody = supabaseRestMock.mock.calls[2][1]?.body as Record<string, unknown>
+    const fallbackBody = supabaseRestMock.mock.calls[3][1]?.body as Record<string, unknown>
     const fallbackSummary = fallbackBody.report_summary as Record<string, unknown>
     expect(fallbackSummary.mode).toBe('quick')
     expect((fallbackSummary._bbb_publish_meta as Record<string, unknown>)?.identity).toBeTruthy()
+  })
+
+  it('writes identity fields on partially upgraded schema via column pruning', async () => {
+    supabaseRestMock
+      .mockResolvedValueOnce({
+        data: [],
+        headers: new Headers(),
+      })
+      .mockRejectedValueOnce(
+        new SupabaseRestError(400, 'column not found', {
+          message: "Could not find the 'mode' column of 'bbb_reports' in the schema cache",
+        })
+      )
+      .mockRejectedValueOnce(
+        new SupabaseRestError(400, 'column not found', {
+          message: "Could not find the 'mode' column of 'bbb_reports' in the schema cache",
+        })
+      )
+      .mockResolvedValueOnce({
+        data: [
+          makeRow({
+            mode: null,
+            run_hash: null,
+            source_run_ref: null,
+            report_summary: null,
+          }),
+        ],
+        headers: new Headers(),
+      })
+
+    const result = await insertReport(basePayload)
+
+    expect(result.id).toBe('11111111-1111-4111-8111-111111111111')
+    expect(supabaseRestMock).toHaveBeenCalledTimes(4)
+
+    const prunedInsertBody = supabaseRestMock.mock.calls[3][1]?.body as Record<string, unknown>
+    expect(prunedInsertBody.mode).toBeUndefined()
+    expect(prunedInsertBody.gladiator_name).toBe('ArenaChampion')
+    expect(prunedInsertBody.github_username).toBe('hhchuan89')
+    expect(prunedInsertBody.device_id).toBe('123e4567-e89b-42d3-a456-426614174000')
+    expect(prunedInsertBody.raw_json).toBeTruthy()
   })
 
   it('degrades mode+source idempotency probe when Supabase misparses mode filter', async () => {
