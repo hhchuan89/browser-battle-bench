@@ -1,5 +1,6 @@
-import { badRequest, methodNotAllowed, serverError } from './_lib/http'
+import { badRequest, getRequestUrl, methodNotAllowed, sendResponse, serverError } from './_lib/http'
 import { getReportById } from './_lib/report-store'
+import { loadServerEnv } from './_lib/env'
 
 const THEMES: Record<string, {
   icon: string
@@ -127,25 +128,31 @@ const buildSvg = (input: {
 </svg>`
 }
 
-export default async function handler(request: Request): Promise<Response> {
+export default async function handler(request: any, response?: any): Promise<Response | void> {
+  const respond = (value: Response) => sendResponse(value, response)
+
   if (request.method !== 'GET') {
-    return methodNotAllowed(['GET'])
+    return respond(methodNotAllowed(['GET']))
   }
 
-  const id = new URL(request.url).searchParams.get('id')?.trim() || ''
+  const env = loadServerEnv()
+  const requestUrl = getRequestUrl(request, env.appBaseUrl)
+  const id = requestUrl.searchParams.get('id')?.trim() || ''
   if (!id) {
-    return badRequest('Missing report id')
+    return respond(badRequest('Missing report id'))
   }
 
   try {
     const report = await getReportById(id)
     if (!report) {
-      return new Response('Report not found', {
-        status: 404,
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-      })
+      return respond(
+        new Response('Report not found', {
+          status: 404,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+          },
+        })
+      )
     }
 
     const svg = buildSvg({
@@ -157,15 +164,17 @@ export default async function handler(request: Request): Promise<Response> {
       tier: report.tier,
     })
 
-    return new Response(svg, {
-      status: 200,
-      headers: {
-        'Content-Type': 'image/svg+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=300, s-maxage=600',
-      },
-    })
+    return respond(
+      new Response(svg, {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=300, s-maxage=600',
+        },
+      })
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return serverError(message)
+    return respond(serverError(message))
   }
 }
