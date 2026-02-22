@@ -1,13 +1,20 @@
 # Browser Battle Bench
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/hhchuan89/browser-battle-bench)
+[![CI](https://img.shields.io/github/actions/workflow/status/hhchuan89/browser-battle-bench/ci.yml?branch=main&label=ci)](https://github.com/hhchuan89/browser-battle-bench/actions/workflows/ci.yml)
+[![Stars](https://img.shields.io/github/stars/hhchuan89/browser-battle-bench?style=social)](https://github.com/hhchuan89/browser-battle-bench/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Vercel](https://img.shields.io/badge/Vercel-Live-111111?logo=vercel)](https://browserbattlebench.vercel.app/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.4-brightgreen.svg)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue.svg)](https://www.typescriptlang.org/)
 
 > ⚔️ **A pure client-side AI benchmarking platform designed to stress-test local models and agents.**
 
 Browser Battle Bench is a zero-cost, edge-first benchmarking tool that runs entirely in your browser. It stress-tests AI models using challenging logic traps, JSON constraints, and endurance scenarios.
+
+**We welcome evil JSON schemas and logic paradoxes. Send a PR!**
+
+[Contributing Guide](./CONTRIBUTING.md) · [Submit a Torture Test Issue](https://github.com/hhchuan89/browser-battle-bench/issues/new?template=torture-test.yml&labels=torture-test&title=%5BTorture%20Test%5D%20)
+
+![Model run getting wasted in BBB](docs/media/bbb-wasted-demo.gif)
 
 ## 🚀 Quick Start
 

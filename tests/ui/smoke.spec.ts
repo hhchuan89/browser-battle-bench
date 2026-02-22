@@ -7,6 +7,9 @@ test.describe('BBB smoke routes', () => {
       page.getByRole('heading', { name: /Browser Battle Bench/i })
     ).toBeVisible()
     await expect(
+      page.getByRole('link', { name: /Star/i })
+    ).toBeVisible()
+    await expect(
       page.getByRole('button', { name: /Enter Arena/i })
     ).toBeVisible()
     await expect(page.getByText(/Quick Battle Snapshot/i)).toBeVisible()

@@ -11,7 +11,15 @@ import {
 import type { PublishedShareLinks } from '@/lib/share/publish-types'
 import GladiatorGate from '@/components/shared/GladiatorGate.vue'
 import { useGladiatorIdentity } from '@/composables/useGladiatorIdentity'
-import { resolvePrimaryCtaLabel, type PublishUiState } from '@/lib/share/result-action-state'
+import {
+  resolvePrimaryCtaLabel,
+  shouldShowContributeTrapCta,
+  type PublishUiState,
+} from '@/lib/share/result-action-state'
+import {
+  GITHUB_CONTRIBUTING_URL,
+  GITHUB_ISSUE_TORTURE_TEST_URL,
+} from '@/lib/github-links'
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +30,9 @@ const props = withDefaults(
     primaryLabel?: string
     retryLabel?: string
     showChallengeLink?: boolean
+    showContributeTrapCta?: boolean
+    contributePrimaryUrl?: string
+    contributeIssueUrl?: string
     utilityDownloadLabel?: string
     onUtilityDownload?: () => void | Promise<void>
     showPrimary?: boolean
@@ -32,6 +43,9 @@ const props = withDefaults(
     primaryLabel: '',
     retryLabel: 'Retry',
     showChallengeLink: true,
+    showContributeTrapCta: true,
+    contributePrimaryUrl: '',
+    contributeIssueUrl: '',
     utilityDownloadLabel: '',
     showPrimary: true,
   }
@@ -93,6 +107,20 @@ const socialTargets = computed(() =>
 
 const showRetryButton = computed(
   () => props.showPrimary && props.primaryMode !== 'retry' && Boolean(props.retryLabel?.trim())
+)
+
+const showContributeCta = computed(
+  () =>
+    props.showContributeTrapCta &&
+    shouldShowContributeTrapCta(props.payload.badgeText)
+)
+
+const contributePrimaryHref = computed(
+  () => props.contributePrimaryUrl || GITHUB_CONTRIBUTING_URL
+)
+
+const contributeIssueHref = computed(
+  () => props.contributeIssueUrl || GITHUB_ISSUE_TORTURE_TEST_URL
 )
 
 const getCardFile = async (): Promise<File | null> => {
@@ -477,6 +505,36 @@ const shareTextPreview = computed(() => buildSocialShareText(props.payload))
         </div>
       </div>
     </Teleport>
+
+    <div
+      v-if="showContributeCta"
+      class="rounded-lg border border-base-300/80 bg-base-200/70 p-3"
+    >
+      <p class="text-sm font-semibold">Think this test is too easy?</p>
+      <p class="mt-1 text-xs text-base-content/75">
+        Submit your own logic traps to GitHub and torture the next gladiator.
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <a
+          class="btn btn-outline btn-sm"
+          :class="isBusy ? 'pointer-events-none opacity-60' : ''"
+          :href="contributePrimaryHref"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🗡️ Contribute a Torture Test
+        </a>
+        <a
+          class="btn btn-ghost btn-sm"
+          :class="isBusy ? 'pointer-events-none opacity-60' : ''"
+          :href="contributeIssueHref"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open Issue
+        </a>
+      </div>
+    </div>
 
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
       <button class="link link-hover" :disabled="isBusy" @click="void copyShareLink()">

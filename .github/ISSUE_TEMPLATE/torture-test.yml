@@ -1,0 +1,61 @@
+name: Torture Test Submission
+description: Submit an evil JSON schema or logic paradox challenge for Browser Battle Bench.
+title: "[Torture Test] "
+labels:
+  - torture-test
+body:
+  - type: input
+    id: trap_name
+    attributes:
+      label: Trap Name
+      description: Give your challenge a short and memorable name.
+      placeholder: "Paradox Ladder: Level 3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_schema
+    attributes:
+      label: Expected Output Schema
+      description: Share the JSON schema or output contract the model must follow.
+      placeholder: |
+        {
+          "type": "object",
+          "properties": {
+            "answer": { "type": "string" }
+          },
+          "required": ["answer"],
+          "additionalProperties": false
+        }
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: failure_mechanism
+    attributes:
+      label: Why This Is a Trap
+      description: Explain the hidden logic hazard and how models usually fail.
+      placeholder: "Most models prioritize the wrong premise and violate the schema under contradiction."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction Steps
+      description: Describe how to run this challenge in BBB.
+      placeholder: |
+        1. Go to Arena.
+        2. Select model X.
+        3. Use prompt Y and schema Z.
+        4. Observe failure in field completeness.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Optional notes, references, links, or prior attempts.
+      placeholder: "Any extra context."
