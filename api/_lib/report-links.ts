@@ -17,6 +17,6 @@ export const buildReportLinks = (baseUrl: string, id: string): ReportLinks => {
     id,
     share_url: `${base}/api/share?id=${token}`,
     canonical_url: `${base}/r/${token}`,
-    og_image_url: `${base}/api/og?id=${token}`,
+    og_image_url: `${base}/api/og.png?id=${token}`,
   }
 }
