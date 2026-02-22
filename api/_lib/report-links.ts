@@ -1,5 +1,5 @@
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '')
-const SHARE_CARD_VERSION = '2'
+const SHARE_CARD_VERSION = '3'
 
 const encodePathSegment = (value: string): string =>
   encodeURIComponent(value).replace(/%2F/g, '_')
