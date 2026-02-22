@@ -5,40 +5,36 @@ import { enforceUploadRateLimit } from '../_lib/rate-limit'
 import { buildReportLinks } from '../_lib/report-links'
 import { insertReport } from '../_lib/report-store'
 
-export const config = {
-  runtime: 'nodejs',
-}
-
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return methodNotAllowed(res, ['POST'])
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'POST') {
+    return methodNotAllowed(['POST'])
   }
 
   let rawBody: unknown
   try {
-    rawBody = await readBody<unknown>(req)
+    rawBody = await readBody<unknown>(request)
   } catch {
-    return badRequest(res, 'Invalid JSON request body')
+    return badRequest('Invalid JSON request body')
   }
 
   try {
     const parsed = validatePublishReportInput(rawBody)
     if (parsed.ok === false) {
-      return badRequest(res, parsed.error)
+      return badRequest(parsed.error)
     }
 
-    const limiter = await enforceUploadRateLimit(req)
+    const limiter = await enforceUploadRateLimit(request)
     if (!limiter.allowed) {
-      return tooManyRequests(res, limiter.reason || 'Too many requests')
+      return tooManyRequests(limiter.reason || 'Too many requests')
     }
 
     const created = await insertReport(parsed.value)
     const env = loadServerEnv()
-    const baseUrl = getRequestBaseUrl(req, env.appBaseUrl)
+    const baseUrl = getRequestBaseUrl(request, env.appBaseUrl)
     const links = buildReportLinks(baseUrl, created.id)
-    return json(res, 200, { ...links })
+    return json(200, { ...links })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return serverError(res, message)
+    return serverError(message)
   }
 }

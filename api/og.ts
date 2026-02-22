@@ -1,10 +1,6 @@
 import { badRequest, methodNotAllowed, serverError } from './_lib/http'
 import { getReportById } from './_lib/report-store'
 
-export const config = {
-  runtime: 'nodejs',
-}
-
 const THEMES: Record<string, {
   icon: string
   modeLabel: string
@@ -72,14 +68,6 @@ const gradeColor = (grade: string): string => {
   }
 }
 
-const toId = (value: unknown): string | null => {
-  if (typeof value === 'string' && value.trim()) return value.trim()
-  if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
-    return value[0].trim()
-  }
-  return null
-}
-
 const escapeXml = (value: string): string =>
   value
     .replace(/&/g, '&amp;')
@@ -139,22 +127,25 @@ const buildSvg = (input: {
 </svg>`
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET') {
-    return methodNotAllowed(res, ['GET'])
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'GET') {
+    return methodNotAllowed(['GET'])
   }
 
-  const id = toId(req.query?.id)
+  const id = new URL(request.url).searchParams.get('id')?.trim() || ''
   if (!id) {
-    return badRequest(res, 'Missing report id')
+    return badRequest('Missing report id')
   }
 
   try {
     const report = await getReportById(id)
     if (!report) {
-      res.status(404).setHeader('Content-Type', 'text/plain; charset=utf-8')
-      res.send('Report not found')
-      return
+      return new Response('Report not found', {
+        status: 404,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+      })
     }
 
     const svg = buildSvg({
@@ -166,12 +157,15 @@ export default async function handler(req: any, res: any) {
       tier: report.tier,
     })
 
-    res.status(200)
-    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8')
-    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
-    res.send(svg)
+    return new Response(svg, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=300, s-maxage=600',
+      },
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return serverError(res, message)
+    return serverError(message)
   }
 }

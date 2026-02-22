@@ -40,10 +40,10 @@ const isCurrentWindow = (windowStart: string, windowMinutes: number): boolean =>
 }
 
 export const enforceUploadRateLimit = async (
-  req: any
+  request: Request
 ): Promise<{ allowed: boolean; reason?: string }> => {
   const env = loadServerEnv()
-  const ip = getClientIp(req)
+  const ip = getClientIp(request)
   const ipHash = buildIpHash(ip, env.rateLimitSalt)
   const windowStart = toIsoWindowStart(env.uploadWindowMinutes)
 

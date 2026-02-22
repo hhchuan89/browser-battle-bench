@@ -1,54 +1,54 @@
-export const json = (res: any, status: number, payload: Record<string, unknown>) => {
-  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8')
-  res.send(JSON.stringify(payload))
-}
-
-export const methodNotAllowed = (res: any, allowed: string[]) =>
-  json(res, 405, { error: `Method not allowed. Allowed: ${allowed.join(', ')}` })
-
-export const badRequest = (res: any, error: string) =>
-  json(res, 400, { error })
-
-export const tooManyRequests = (res: any, error: string) =>
-  json(res, 429, { error })
-
-export const notFound = (res: any, error = 'Not found') =>
-  json(res, 404, { error })
-
-export const serverError = (res: any, error = 'Internal server error') =>
-  json(res, 500, { error })
-
-export const readBody = async <T>(req: any): Promise<T> => {
-  if (req.body && typeof req.body === 'object') return req.body as T
-  if (typeof req.body === 'string') return JSON.parse(req.body) as T
-
-  const chunks: Buffer[] = []
-  await new Promise<void>((resolve, reject) => {
-    req.on('data', (chunk: Buffer) => chunks.push(chunk))
-    req.on('end', () => resolve())
-    req.on('error', (error: Error) => reject(error))
+export const json = (
+  status: number,
+  payload: Record<string, unknown>,
+  headers?: Record<string, string>
+): Response =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      ...(headers || {}),
+    },
   })
-  const raw = Buffer.concat(chunks).toString('utf8')
-  return (raw ? JSON.parse(raw) : {}) as T
+
+export const methodNotAllowed = (allowed: string[]): Response =>
+  json(405, { error: `Method not allowed. Allowed: ${allowed.join(', ')}` })
+
+export const badRequest = (error: string): Response =>
+  json(400, { error })
+
+export const tooManyRequests = (error: string): Response =>
+  json(429, { error })
+
+export const notFound = (error = 'Not found'): Response =>
+  json(404, { error })
+
+export const serverError = (error = 'Internal server error'): Response =>
+  json(500, { error })
+
+export const readBody = async <T>(request: Request): Promise<T> => {
+  const contentType = request.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return (await request.json()) as T
+  }
+
+  const raw = await request.text()
+  if (!raw.trim()) return {} as T
+  return JSON.parse(raw) as T
 }
 
-export const getRequestBaseUrl = (req: any, fallbackBaseUrl: string): string => {
-  if (fallbackBaseUrl) return fallbackBaseUrl
-  const forwardedProto = (req.headers['x-forwarded-proto'] as string | undefined) || 'https'
-  const host = (req.headers['x-forwarded-host'] as string | undefined) || req.headers.host
-  if (!host) return 'https://browserbattlebench.vercel.app'
-  return `${forwardedProto}://${host}`
+export const getRequestBaseUrl = (request: Request, fallbackBaseUrl: string): string => {
+  if (fallbackBaseUrl && fallbackBaseUrl.trim()) return fallbackBaseUrl
+  const url = new URL(request.url)
+  return `${url.protocol}//${url.host}`
 }
 
-export const getClientIp = (req: any): string => {
-  const forwardedFor = req.headers['x-forwarded-for']
-  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+export const getClientIp = (request: Request): string => {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor && forwardedFor.trim()) {
     return forwardedFor.split(',')[0].trim()
   }
-  if (Array.isArray(forwardedFor) && forwardedFor[0]) {
-    return String(forwardedFor[0]).split(',')[0].trim()
-  }
-  return req.socket?.remoteAddress || 'unknown'
+  return request.headers.get('x-real-ip') || 'unknown'
 }
 
 export const escapeHtml = (value: string): string =>

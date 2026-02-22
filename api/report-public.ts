@@ -3,42 +3,30 @@ import { loadServerEnv } from './_lib/env'
 import { buildReportLinks } from './_lib/report-links'
 import { getReportById } from './_lib/report-store'
 
-export const config = {
-  runtime: 'nodejs',
-}
-
-const readId = (value: unknown): string | null => {
-  if (typeof value === 'string' && value.trim()) return value.trim()
-  if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
-    return value[0].trim()
-  }
-  return null
-}
-
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET') {
-    return methodNotAllowed(res, ['GET'])
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== 'GET') {
+    return methodNotAllowed(['GET'])
   }
 
-  const id = readId(req.query?.id)
+  const id = new URL(request.url).searchParams.get('id')?.trim() || ''
   if (!id) {
-    return badRequest(res, 'Missing report id')
+    return badRequest('Missing report id')
   }
 
   try {
     const row = await getReportById(id)
-    if (!row) return notFound(res, 'Report not found')
+    if (!row) return notFound('Report not found')
 
     const env = loadServerEnv()
-    const baseUrl = getRequestBaseUrl(req, env.appBaseUrl)
+    const baseUrl = getRequestBaseUrl(request, env.appBaseUrl)
     const links = buildReportLinks(baseUrl, row.id)
 
-    return json(res, 200, {
+    return json(200, {
       ...row,
       ...links,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return serverError(res, message)
+    return serverError(message)
   }
 }
