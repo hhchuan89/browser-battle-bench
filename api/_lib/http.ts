@@ -1,7 +1,9 @@
 interface NodeResponseLike {
-  status: (code: number) => NodeResponseLike
+  status?: (code: number) => NodeResponseLike
+  statusCode?: number
   setHeader: (name: string, value: string) => void
-  send: (body: string) => void
+  send?: (body: string) => void
+  end?: (body: string) => void
 }
 
 type ResponseTarget = NodeResponseLike | undefined | null
@@ -11,9 +13,8 @@ const isNodeResponse = (value: unknown): value is NodeResponseLike => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Record<string, unknown>
   return (
-    typeof candidate.status === 'function' &&
     typeof candidate.setHeader === 'function' &&
-    typeof candidate.send === 'function'
+    (typeof candidate.send === 'function' || typeof candidate.end === 'function')
   )
 }
 
@@ -39,10 +40,18 @@ const send = (
   headers: Record<string, string> = {}
 ): void | Response => {
   if (isNodeResponse(res)) {
-    res.status(status)
+    if (typeof res.status === 'function') {
+      res.status(status)
+    } else {
+      res.statusCode = status
+    }
     res.setHeader('Content-Type', contentType)
     Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value))
-    res.send(body)
+    if (typeof res.send === 'function') {
+      res.send(body)
+    } else if (typeof res.end === 'function') {
+      res.end(body)
+    }
     return
   }
 
