@@ -44,14 +44,14 @@ describe('social share builder', () => {
       'linkedin',
       'reddit',
       'threads',
-      'instagram',
+      'bluesky',
     ])
     expect(targets[0].url).toContain('twitter.com/intent/tweet')
     expect(targets[0].url).toContain(encodeURIComponent('/api/share/abc'))
     expect(targets[1].url).toContain('facebook.com/sharer')
     expect(targets[2].url).toContain('linkedin.com/sharing/share-offsite')
     expect(targets[4].url).toContain('threads.net/intent/post')
-    expect(targets[5].url).toContain('instagram.com')
-    expect(targets[5].prefillSupported).toBe(false)
+    expect(targets[5].url).toContain('bsky.app/intent/compose')
+    expect(targets[5].prefillSupported).toBe(true)
   })
 })

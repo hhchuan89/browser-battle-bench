@@ -246,7 +246,7 @@ const goNext = () => {
         </button>
       </div>
       <p class="text-[11px] text-base-content/60 mt-2">
-        Instagram does not support direct web share prefill. Use Download Card for manual upload.
+        If a social window does not open, allow popups and retry.
       </p>
     </div>
     <p v-if="statusText" class="text-xs text-base-content/70">

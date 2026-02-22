@@ -6,7 +6,7 @@ export type SocialPlatform =
   | 'linkedin'
   | 'reddit'
   | 'threads'
-  | 'instagram'
+  | 'bluesky'
 
 export interface SocialShareTarget {
   id: SocialPlatform
@@ -92,11 +92,11 @@ export const buildSocialShareTargets = (
       composeText: composedMessage,
     },
     {
-      id: 'instagram',
-      label: 'Instagram',
-      icon: 'ig',
-      url: 'https://www.instagram.com/',
-      prefillSupported: false,
+      id: 'bluesky',
+      label: 'Bluesky',
+      icon: 'bs',
+      url: `https://bsky.app/intent/compose?text=${encodeURIComponent(composedMessage)}`,
+      prefillSupported: true,
       composeText: composedMessage,
     },
   ]
