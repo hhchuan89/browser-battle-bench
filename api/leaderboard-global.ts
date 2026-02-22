@@ -25,21 +25,20 @@ const parseMode = (value: string | null): PublishMode | 'all' => {
   return 'all'
 }
 
-export default async function handler(req: any, res: any): Promise<void> {
+export default async function handler(req: any, res?: any): Promise<void | Response> {
   if (req.method !== 'GET') {
     return methodNotAllowed(res, ['GET'])
   }
 
-  const env = loadServerEnv()
-  const requestUrl = getRequestUrl(req, env.appBaseUrl)
-  const mode = parseMode(requestUrl.searchParams.get('mode'))
-  if (!VALID_MODES.includes(mode)) {
-    return badRequest(res, `mode must be one of: ${VALID_MODES.join(', ')}`)
-  }
-
-  const limit = parseLimit(requestUrl.searchParams.get('limit'))
-
   try {
+    const env = loadServerEnv()
+    const requestUrl = getRequestUrl(req, env.appBaseUrl)
+    const mode = parseMode(requestUrl.searchParams.get('mode'))
+    if (!VALID_MODES.includes(mode)) {
+      return badRequest(res, `mode must be one of: ${VALID_MODES.join(', ')}`)
+    }
+
+    const limit = parseLimit(requestUrl.searchParams.get('limit'))
     const expandedLimit = mode === 'all' ? limit : Math.max(limit * 4, 80)
     const rows = await listReports({
       limit: expandedLimit,

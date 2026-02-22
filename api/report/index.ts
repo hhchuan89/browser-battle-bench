@@ -5,7 +5,7 @@ import { enforceUploadRateLimit } from '../_lib/rate-limit'
 import { buildReportLinks } from '../_lib/report-links'
 import { insertReport } from '../_lib/report-store'
 
-export default async function handler(req: any, res: any): Promise<void> {
+export default async function handler(req: any, res?: any): Promise<void | Response> {
   if (req.method !== 'POST') {
     return methodNotAllowed(res, ['POST'])
   }

@@ -1,4 +1,4 @@
-import { badRequest, getRequestUrl, methodNotAllowed, serverError } from './_lib/http'
+import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from './_lib/http'
 import { getReportById } from './_lib/report-store'
 import { loadServerEnv } from './_lib/env'
 
@@ -128,25 +128,22 @@ const buildSvg = (input: {
 </svg>`
 }
 
-export default async function handler(req: any, res: any): Promise<void> {
+export default async function handler(req: any, res?: any): Promise<void | Response> {
   if (req.method !== 'GET') {
     return methodNotAllowed(res, ['GET'])
   }
 
-  const env = loadServerEnv()
-  const requestUrl = getRequestUrl(req, env.appBaseUrl)
-  const id = requestUrl.searchParams.get('id')?.trim() || ''
-  if (!id) {
-    return badRequest(res, 'Missing report id')
-  }
-
   try {
+    const env = loadServerEnv()
+    const requestUrl = getRequestUrl(req, env.appBaseUrl)
+    const id = requestUrl.searchParams.get('id')?.trim() || ''
+    if (!id) {
+      return badRequest(res, 'Missing report id')
+    }
+
     const report = await getReportById(id)
     if (!report) {
-      res.status(404)
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-      res.send('Report not found')
-      return
+      return text(res, 404, 'Report not found')
     }
 
     const svg = buildSvg({
@@ -158,11 +155,10 @@ export default async function handler(req: any, res: any): Promise<void> {
       tier: report.tier,
     })
 
-    res.status(200)
-    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8')
-    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
-    res.send(svg)
-    return
+    return text(res, 200, svg, {
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=300, s-maxage=600',
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return serverError(res, message)

@@ -1,4 +1,4 @@
-import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, methodNotAllowed, serverError } from './_lib/http'
+import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, html, methodNotAllowed, serverError } from './_lib/http'
 import { loadServerEnv } from './_lib/env'
 import { buildReportLinks } from './_lib/report-links'
 import { getReportById } from './_lib/report-store'
@@ -49,25 +49,22 @@ const toMetaHtml = (input: {
 </html>`
 }
 
-export default async function handler(req: any, res: any): Promise<void> {
+export default async function handler(req: any, res?: any): Promise<void | Response> {
   if (req.method !== 'GET') {
     return methodNotAllowed(res, ['GET'])
   }
 
-  const env = loadServerEnv()
-  const requestUrl = getRequestUrl(req, env.appBaseUrl)
-  const id = requestUrl.searchParams.get('id')?.trim() || ''
-  if (!id) {
-    return badRequest(res, 'Missing report id')
-  }
-
   try {
+    const env = loadServerEnv()
+    const requestUrl = getRequestUrl(req, env.appBaseUrl)
+    const id = requestUrl.searchParams.get('id')?.trim() || ''
+    if (!id) {
+      return badRequest(res, 'Missing report id')
+    }
+
     const report = await getReportById(id)
     if (!report) {
-      res.status(404)
-      res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.send('<!doctype html><title>Report not found</title><p>Report not found.</p>')
-      return
+      return html(res, 404, '<!doctype html><title>Report not found</title><p>Report not found.</p>')
     }
 
     const baseUrl = getRequestBaseUrl(req, env.appBaseUrl)
@@ -76,9 +73,9 @@ export default async function handler(req: any, res: any): Promise<void> {
     const title = `BBB ${modeLabel(report.mode)} | ${report.grade} ${report.score.toFixed(1)} - ${report.scenario_name}`
     const description = `${report.model_id} on tier ${report.tier}. View full public report and challenge link.`
 
-    res.status(200)
-    res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.send(
+    return html(
+      res,
+      200,
       toMetaHtml({
         title,
         description,
@@ -87,7 +84,6 @@ export default async function handler(req: any, res: any): Promise<void> {
         imageUrl: links.og_image_url,
       })
     )
-    return
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return serverError(res, message)

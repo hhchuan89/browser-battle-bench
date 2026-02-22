@@ -4,37 +4,107 @@ interface NodeResponseLike {
   send: (body: string) => void
 }
 
-export const json = (
-  res: NodeResponseLike,
+type ResponseTarget = NodeResponseLike | undefined | null
+type HeaderInput = Headers | Record<string, string | string[] | undefined> | undefined | null
+
+const isNodeResponse = (value: unknown): value is NodeResponseLike => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.status === 'function' &&
+    typeof candidate.setHeader === 'function' &&
+    typeof candidate.send === 'function'
+  )
+}
+
+const readHeader = (headers: HeaderInput, key: string): string | null => {
+  if (!headers) return null
+  if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    return headers.get(key)
+  }
+
+  const map = headers as Record<string, string | string[] | undefined>
+  const direct = map[key] ?? map[key.toLowerCase()] ?? map[key.toUpperCase()]
+
+  if (typeof direct === 'string') return direct
+  if (Array.isArray(direct) && direct[0]) return String(direct[0])
+  return null
+}
+
+const send = (
+  res: ResponseTarget,
   status: number,
-  payload: Record<string, unknown>
-): void => {
-  res.status(status)
-  res.setHeader('Content-Type', 'application/json; charset=utf-8')
-  res.send(JSON.stringify(payload))
+  body: string,
+  contentType: string,
+  headers: Record<string, string> = {}
+): void | Response => {
+  if (isNodeResponse(res)) {
+    res.status(status)
+    res.setHeader('Content-Type', contentType)
+    Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value))
+    res.send(body)
+    return
+  }
+
+  const responseHeaders = new Headers({
+    'Content-Type': contentType,
+    ...headers,
+  })
+  return new Response(body, {
+    status,
+    headers: responseHeaders,
+  })
 }
 
-export const methodNotAllowed = (res: NodeResponseLike, allowed: string[]): void => {
-  json(res, 405, { error: `Method not allowed. Allowed: ${allowed.join(', ')}` })
-}
+export const json = (
+  res: ResponseTarget,
+  status: number,
+  payload: Record<string, unknown>,
+  headers: Record<string, string> = {}
+): void | Response =>
+  send(res, status, JSON.stringify(payload), 'application/json; charset=utf-8', headers)
 
-export const badRequest = (res: NodeResponseLike, error: string): void => {
+export const html = (
+  res: ResponseTarget,
+  status: number,
+  body: string,
+  headers: Record<string, string> = {}
+): void | Response =>
+  send(res, status, body, 'text/html; charset=utf-8', headers)
+
+export const text = (
+  res: ResponseTarget,
+  status: number,
+  body: string,
+  headers: Record<string, string> = {}
+): void | Response =>
+  send(res, status, body, 'text/plain; charset=utf-8', headers)
+
+export const methodNotAllowed = (res: ResponseTarget, allowed: string[]): void | Response =>
+  json(
+    res,
+    405,
+    { error: `Method not allowed. Allowed: ${allowed.join(', ')}` },
+    { Allow: allowed.join(', ') }
+  )
+
+export const badRequest = (res: ResponseTarget, error: string): void | Response =>
   json(res, 400, { error })
-}
 
-export const tooManyRequests = (res: NodeResponseLike, error: string): void => {
+export const tooManyRequests = (res: ResponseTarget, error: string): void | Response =>
   json(res, 429, { error })
-}
 
-export const notFound = (res: NodeResponseLike, error = 'Not found'): void => {
+export const notFound = (res: ResponseTarget, error = 'Not found'): void | Response =>
   json(res, 404, { error })
-}
 
-export const serverError = (res: NodeResponseLike, error = 'Internal server error'): void => {
+export const serverError = (res: ResponseTarget, error = 'Internal server error'): void | Response =>
   json(res, 500, { error })
-}
 
 export const readBody = async <T>(req: any): Promise<T> => {
+  if (req && typeof req.json === 'function') {
+    return (await req.json()) as T
+  }
+
   if (req?.body && typeof req.body === 'object') {
     return req.body as T
   }
@@ -56,11 +126,11 @@ export const readBody = async <T>(req: any): Promise<T> => {
 export const getRequestBaseUrl = (req: any, fallbackBaseUrl: string): string => {
   if (fallbackBaseUrl && fallbackBaseUrl.trim()) return fallbackBaseUrl
 
-  const headers = req?.headers || {}
-  const forwardedProto = (headers['x-forwarded-proto'] as string | undefined) || 'https'
+  const headers = (req?.headers || null) as HeaderInput
+  const forwardedProto = readHeader(headers, 'x-forwarded-proto') || 'https'
   const host =
-    (headers['x-forwarded-host'] as string | undefined) ||
-    (headers.host as string | undefined) ||
+    readHeader(headers, 'x-forwarded-host') ||
+    readHeader(headers, 'host') ||
     'browserbattlebench.vercel.app'
 
   return `${forwardedProto}://${host}`
@@ -74,17 +144,15 @@ export const getRequestUrl = (req: any, fallbackBaseUrl: string): URL => {
 }
 
 export const getClientIp = (req: any): string => {
-  const forwardedFor = req?.headers?.['x-forwarded-for']
+  const headers = (req?.headers || null) as HeaderInput
+  const forwardedFor = readHeader(headers, 'x-forwarded-for')
 
-  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+  if (forwardedFor && forwardedFor.trim()) {
     return forwardedFor.split(',')[0].trim()
   }
 
-  if (Array.isArray(forwardedFor) && forwardedFor[0]) {
-    return String(forwardedFor[0]).split(',')[0].trim()
-  }
-
-  return req?.headers?.['x-real-ip'] || req?.socket?.remoteAddress || 'unknown'
+  const realIp = readHeader(headers, 'x-real-ip')
+  return realIp || req?.socket?.remoteAddress || 'unknown'
 }
 
 export const escapeHtml = (value: string): string =>
