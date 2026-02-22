@@ -80,7 +80,8 @@ const isSchemaDriftError = (error: unknown): boolean => {
     message.includes('schema cache') ||
     message.includes('record') ||
     message.includes('could not find') ||
-    message.includes('does not exist')
+    message.includes('does not exist') ||
+    message.includes('within group is required for ordered-set aggregate mode')
   )
 }
 
@@ -335,6 +336,33 @@ const findExistingByModeAndSourceRef = async (
     const row = firstRow(selected.data)
     return row ? toPublicReport(row) : null
   } catch (error) {
+    const modeFilterError = readErrorMessage(error)
+      .toLowerCase()
+      .includes('within group is required for ordered-set aggregate mode')
+
+    // Some PostgREST/Supabase combinations misparse `mode=eq.xxx`.
+    // Fallback to source_run_ref-only probe to avoid blocking publish.
+    if (modeFilterError) {
+      try {
+        const selected = await supabaseRest<StoredReportRow[] | StoredReportRow>(
+          `bbb_reports?source_run_ref=eq.${encodeURIComponent(sourceRunRef)}&select=*&limit=5`
+        )
+        const rows = Array.isArray(selected.data)
+          ? selected.data
+          : selected.data
+            ? [selected.data]
+            : []
+        const matched = rows
+          .map((row) => toPublicReport(row))
+          .find((row) => row.mode === mode)
+        if (matched) return matched
+        return rows.length > 0 ? toPublicReport(rows[0]) : null
+      } catch (fallbackError) {
+        if (isSchemaDriftError(fallbackError)) return null
+        throw fallbackError
+      }
+    }
+
     if (isSchemaDriftError(error)) return null
     throw error
   }

@@ -161,4 +161,35 @@ describe('api report-store', () => {
     expect(fallbackSummary.mode).toBe('quick')
     expect((fallbackSummary._bbb_publish_meta as Record<string, unknown>)?.identity).toBeTruthy()
   })
+
+  it('degrades mode+source idempotency probe when Supabase misparses mode filter', async () => {
+    supabaseRestMock
+      .mockRejectedValueOnce(
+        new SupabaseRestError(
+          400,
+          'WITHIN GROUP is required for ordered-set aggregate mode',
+          { message: 'WITHIN GROUP is required for ordered-set aggregate mode' }
+        )
+      )
+      .mockResolvedValueOnce({
+        data: [],
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        data: [makeRow({ mode: 'arena', run_hash: null, source_run_ref: 'arena-run-001' })],
+        headers: new Headers(),
+      })
+
+    const result = await insertReport({
+      ...basePayload,
+      mode: 'arena',
+      run_hash: null,
+      source_run_ref: 'arena-run-001',
+    })
+
+    expect(result.mode).toBe('arena')
+    expect(supabaseRestMock).toHaveBeenCalledTimes(3)
+    expect(String(supabaseRestMock.mock.calls[0][0])).toContain('mode=eq.arena')
+    expect(String(supabaseRestMock.mock.calls[1][0])).toContain('source_run_ref=eq.arena-run-001')
+  })
 })
