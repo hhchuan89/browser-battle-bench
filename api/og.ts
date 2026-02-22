@@ -2,6 +2,7 @@ import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from '
 import { getReportById } from './_lib/report-store.js'
 import { loadServerEnv } from './_lib/env.js'
 import { isUuidLike } from './_lib/id.js'
+import sharp from 'sharp'
 
 const THEMES: Record<string, {
   icon: string
@@ -159,9 +160,34 @@ export default async function handler(req: any, res?: any): Promise<void | Respo
       tier: report.tier,
     })
 
-    return text(res, 200, svg, {
-      'Content-Type': 'image/svg+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=300, s-maxage=600',
+    const png = await sharp(Buffer.from(svg, 'utf8'))
+      .png({ compressionLevel: 9 })
+      .toBuffer()
+
+    if (res && typeof res.setHeader === 'function') {
+      if (typeof res.status === 'function') {
+        res.status(200)
+      } else {
+        res.statusCode = 200
+      }
+      res.setHeader('Content-Type', 'image/png')
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
+      if (typeof res.send === 'function') {
+        res.send(png)
+      } else if (typeof res.end === 'function') {
+        res.end(png)
+      }
+      return
+    }
+
+    const pngBytes = Uint8Array.from(png)
+    const pngBlob = new Blob([pngBytes], { type: 'image/png' })
+    return new Response(pngBlob, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=300, s-maxage=600',
+      },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
