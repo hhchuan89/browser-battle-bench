@@ -2,45 +2,13 @@ import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from '
 import { getReportById } from './_lib/report-store.js'
 import { loadServerEnv } from './_lib/env.js'
 import { isUuidLike } from './_lib/id.js'
-import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import sharp from 'sharp'
+import { Resvg } from '@resvg/resvg-js'
 
-const FONT_SANS = 'BBB Sans, sans-serif'
+const FONT_SANS = 'Noto Sans, sans-serif'
 const THIS_DIR = dirname(fileURLToPath(import.meta.url))
-const FONT_REGULAR_PATH = join(THIS_DIR, '_assets', 'roboto-latin-400.woff2')
-const FONT_BOLD_PATH = join(THIS_DIR, '_assets', 'roboto-latin-700.woff2')
-let cachedFontCss = ''
-
-const loadEmbeddedFontCss = async (): Promise<string> => {
-  if (cachedFontCss) return cachedFontCss
-
-  const [regularBytes, boldBytes] = await Promise.all([
-    readFile(FONT_REGULAR_PATH),
-    readFile(FONT_BOLD_PATH),
-  ])
-
-  const regularBase64 = regularBytes.toString('base64')
-  const boldBase64 = boldBytes.toString('base64')
-
-  cachedFontCss = `<style>
-@font-face {
-  font-family: 'BBB Sans';
-  src: url(data:font/woff2;base64,${regularBase64}) format('woff2');
-  font-style: normal;
-  font-weight: 400;
-}
-@font-face {
-  font-family: 'BBB Sans';
-  src: url(data:font/woff2;base64,${boldBase64}) format('woff2');
-  font-style: normal;
-  font-weight: 700;
-}
-</style>`
-
-  return cachedFontCss
-}
+const FONT_FILE_PATH = join(THIS_DIR, '_assets', 'NotoSans-Variable.ttf')
 
 const THEMES: Record<string, {
   modeLabel: string
@@ -125,7 +93,6 @@ const buildSvg = (input: {
   score: number
   grade: string
   tier: string
-  fontCss: string
 }): string => {
   const theme = THEMES[input.mode] || THEMES.quick
   const gradeTint = gradeColor(input.grade)
@@ -141,7 +108,6 @@ const buildSvg = (input: {
       <stop offset="100%" stop-color="${theme.to}"/>
     </linearGradient>
   </defs>
-  ${input.fontCss}
 
   <rect x="0" y="0" width="1200" height="630" fill="url(#bg)"/>
   <rect x="12" y="12" width="1176" height="606" rx="18" fill="none" stroke="${theme.accent}" stroke-width="4"/>
@@ -186,7 +152,6 @@ export default async function handler(req: any, res?: any): Promise<void | Respo
       return text(res, 404, 'Report not found')
     }
 
-    const fontCss = await loadEmbeddedFontCss()
     const svg = buildSvg({
       mode: report.mode,
       scenarioName: report.scenario_name,
@@ -194,12 +159,15 @@ export default async function handler(req: any, res?: any): Promise<void | Respo
       score: report.score,
       grade: report.grade,
       tier: report.tier,
-      fontCss,
     })
-
-    const png = await sharp(Buffer.from(svg, 'utf8'))
-      .png({ compressionLevel: 9 })
-      .toBuffer()
+    const resvg = new Resvg(svg, {
+      font: {
+        loadSystemFonts: false,
+        defaultFontFamily: 'Noto Sans',
+        fontFiles: [FONT_FILE_PATH],
+      },
+    })
+    const png = Buffer.from(resvg.render().asPng())
 
     if (res && typeof res.setHeader === 'function') {
       if (typeof res.status === 'function') {
