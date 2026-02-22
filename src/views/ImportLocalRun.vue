@@ -53,7 +53,6 @@ const identityGateResolver = ref<((value: boolean) => void) | null>(null)
 
 const {
   identity: gladiatorIdentity,
-  hasGladiatorName,
   save: saveGladiatorIdentity,
   reload: reloadIdentity,
 } = useGladiatorIdentity()
@@ -281,8 +280,7 @@ const resolveIdentityGate = (value: boolean) => {
 
 const ensureIdentityReady = async (): Promise<boolean> => {
   reloadIdentity()
-  if (hasGladiatorName.value) return true
-
+  // Always confirm identity before import submission so users can add/update optional GitHub username.
   showIdentityGate.value = true
   return new Promise<boolean>((resolve) => {
     identityGateResolver.value = resolve
