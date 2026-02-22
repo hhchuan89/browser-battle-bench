@@ -35,6 +35,30 @@ npm run build
 
 Open your browser to `http://localhost:5173` to see the app.
 
+## 📥 Import Local Run (Quick/Gauntlet)
+
+Use this when you benchmark on local `localhost` and want to publish the result to global leaderboard without exposing Supabase keys.
+
+1. Run a local **Quick** or **Gauntlet** battle.
+2. Export both files from the run result:
+   - `bbb-report-*.json`
+   - `bbb-raw-outputs-*.json`
+3. Open [`/import`](https://browserbattlebench.vercel.app/import) on the official site.
+4. Drag/drop or paste both JSON payloads.
+5. Run local precheck and submit.
+
+The importer performs strict dual-file verification:
+- Recomputes `run_hash` and `replay_hash`
+- Rejects mismatch with `TAMPERING DETECTED. REPORT REJECTED.`
+- Supports only Quick/Gauntlet scenarios in V1
+
+Imported entries are published into the same Global Leaderboard and labeled:
+`Imported (hash-verified)`.
+
+Security boundary note:
+- Hash verification ensures **data integrity consistency** between the two files.
+- It does **not** prove cryptographic origin authenticity (no server-side signature in V1).
+
 ## ✨ Features
 
 ### 🎯 Battle Arena
@@ -142,7 +166,7 @@ VITE_DEBUG_MODE=true
 VITE_APP_BASE_URL=https://browserbattlebench.vercel.app
 ```
 
-For Vercel serverless APIs (`/api/report`, `/api/share/:id`, `/api/og/:id.png`, `/api/leaderboard/global`), configure these project-level environment variables:
+For Vercel serverless APIs (`/api/report`, `/api/import-report`, `/api/share/:id`, `/api/og/:id.png`, `/api/leaderboard-global`), configure these project-level environment variables:
 
 ```env
 SUPABASE_URL=https://your-project-id.supabase.co

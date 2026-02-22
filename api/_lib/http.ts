@@ -110,25 +110,61 @@ export const serverError = (res: ResponseTarget, error = 'Internal server error'
   json(res, 500, { error })
 
 export const readBody = async <T>(req: any): Promise<T> => {
+  return readBodyWithOptions<T>(req)
+}
+
+export const readBodyWithOptions = async <T>(
+  req: any,
+  options?: { maxBytes?: number }
+): Promise<T> => {
+  const maxBytes = options?.maxBytes ?? 0
+
+  const enforceLimit = (raw: string): void => {
+    if (maxBytes <= 0) return
+    const bytes = Buffer.byteLength(raw, 'utf8')
+    if (bytes > maxBytes) {
+      throw new Error(`Request body too large (${bytes} bytes > ${maxBytes} bytes)`)
+    }
+  }
+
   if (req && typeof req.json === 'function') {
+    if (typeof req.text === 'function') {
+      const raw = await req.text()
+      enforceLimit(raw)
+      return (raw ? JSON.parse(raw) : {}) as T
+    }
     return (await req.json()) as T
   }
 
   if (req?.body && typeof req.body === 'object') {
+    if (maxBytes > 0) {
+      const raw = JSON.stringify(req.body)
+      enforceLimit(raw)
+    }
     return req.body as T
   }
   if (typeof req?.body === 'string') {
+    enforceLimit(req.body)
     return JSON.parse(req.body) as T
   }
 
   const chunks: Buffer[] = []
+  let totalBytes = 0
   await new Promise<void>((resolve, reject) => {
-    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    req.on('data', (chunk: Buffer) => {
+      totalBytes += chunk.length
+      if (maxBytes > 0 && totalBytes > maxBytes) {
+        reject(new Error(`Request body too large (${totalBytes} bytes > ${maxBytes} bytes)`))
+        return
+      }
+      chunks.push(chunk)
+    })
     req.on('end', () => resolve())
     req.on('error', (error: Error) => reject(error))
   })
 
   const raw = Buffer.concat(chunks).toString('utf8')
+  enforceLimit(raw)
   return (raw ? JSON.parse(raw) : {}) as T
 }
 

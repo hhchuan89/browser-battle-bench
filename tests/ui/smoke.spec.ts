@@ -85,6 +85,13 @@ test.describe('BBB smoke routes', () => {
     await expect(page.getByText(/Run History/i)).toBeVisible()
   })
 
+  test('import route renders strict dual-file importer', async ({ page }) => {
+    await page.goto('/import')
+    await expect(page.getByRole('heading', { name: /Import Local Run/i })).toBeVisible()
+    await expect(page.getByText(/strict dual-file import/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: /Run Local Precheck/i })).toBeVisible()
+  })
+
   test('diagnostics renders heading', async ({ page }) => {
     await page.goto('/diagnostics')
     await expect(page.getByRole('heading', { name: /Diagnostics/i })).toBeVisible()

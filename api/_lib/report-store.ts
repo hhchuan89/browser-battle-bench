@@ -1,4 +1,6 @@
 import type {
+  IngestSource,
+  IntegrityStatus,
   PublicReportRecord,
   PublishMode,
   PublishReportInput,
@@ -11,6 +13,8 @@ import { SupabaseRestError, supabaseRest } from './supabase.js'
 const DEFAULT_MODE: PublishMode = 'quick'
 const VALID_MODES: PublishMode[] = ['arena', 'quick', 'gauntlet', 'stress']
 const VALID_GRADES: ShareGrade[] = ['S', 'A', 'B', 'C', 'F']
+const VALID_INGEST_SOURCES: IngestSource[] = ['live', 'import_local']
+const VALID_INTEGRITY_STATUS: IntegrityStatus[] = ['hash_verified', 'legacy']
 
 const firstRow = <T>(value: T[] | T | null | undefined): T | undefined => {
   if (!value) return undefined
@@ -58,6 +62,22 @@ const firstGrade = (...values: unknown[]): ShareGrade => {
   const grade = firstString(...values)
   if (!grade) return 'C'
   return VALID_GRADES.includes(grade as ShareGrade) ? (grade as ShareGrade) : 'C'
+}
+
+const firstIngestSource = (...values: unknown[]): IngestSource => {
+  const value = firstString(...values)
+  if (!value) return 'live'
+  return VALID_INGEST_SOURCES.includes(value as IngestSource)
+    ? (value as IngestSource)
+    : 'live'
+}
+
+const firstIntegrityStatus = (...values: unknown[]): IntegrityStatus => {
+  const value = firstString(...values)
+  if (!value) return 'legacy'
+  return VALID_INTEGRITY_STATUS.includes(value as IntegrityStatus)
+    ? (value as IntegrityStatus)
+    : 'legacy'
 }
 
 const readErrorMessage = (error: unknown): string => {
@@ -161,6 +181,8 @@ const buildLegacyRawJson = (payload: PublishReportInput): Record<string, unknown
   os_name: payload.os_name ?? null,
   browser_name: payload.browser_name ?? null,
   vram_gb: payload.vram_gb ?? null,
+  ingest_source: payload.ingest_source ?? 'live',
+  integrity_status: payload.integrity_status ?? 'legacy',
   report_summary: payload.report_summary,
 })
 
@@ -190,6 +212,10 @@ const mergePublishMeta = (
         vram_gb: payload.vram_gb ?? null,
         source: 'self-reported',
       },
+      ingest: {
+        ingest_source: payload.ingest_source ?? 'live',
+        integrity_status: payload.integrity_status ?? 'legacy',
+      },
     },
   }
 }
@@ -202,6 +228,7 @@ const toPublicReport = (row: StoredReportRow): PublicReportRecord => {
   const identityMeta = asRecord(summaryMeta?.identity)
   const canonicalMeta = asRecord(summaryMeta?.canonical_model)
   const hardwareMeta = asRecord(summaryMeta?.self_reported_hardware)
+  const ingestMeta = asRecord(summaryMeta?.ingest)
 
   const mode = firstMode(row.mode, raw?.mode)
   const scenarioId =
@@ -285,6 +312,18 @@ const toPublicReport = (row: StoredReportRow): PublicReportRecord => {
       toNullableNumber(row.vram_gb) ??
       toNullableNumber(hardwareMeta?.vram_gb) ??
       toNullableNumber(raw?.vram_gb),
+    ingest_source: firstIngestSource(
+      row.ingest_source,
+      ingestMeta?.ingest_source,
+      summary?.ingest_source,
+      raw?.ingest_source
+    ),
+    integrity_status: firstIntegrityStatus(
+      row.integrity_status,
+      ingestMeta?.integrity_status,
+      summary?.integrity_status,
+      raw?.integrity_status
+    ),
     report_summary: summary || rawSummary || raw || {},
     created_at: firstString(row.created_at) || new Date(0).toISOString(),
   }
@@ -321,6 +360,8 @@ const buildFullInsertRow = (payload: PublishReportInput) => {
     os_name: payload.os_name ?? null,
     browser_name: payload.browser_name ?? null,
     vram_gb: payload.vram_gb ?? null,
+    ingest_source: payload.ingest_source ?? 'live',
+    integrity_status: payload.integrity_status ?? 'legacy',
     report_summary: mergedSummary,
   }
 }

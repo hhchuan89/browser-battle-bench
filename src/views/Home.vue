@@ -201,6 +201,12 @@ const formatDuration = (durationMs: number) => {
           >
             🏆 Leaderboard
           </router-link>
+          <router-link
+            to="/import"
+            class="block border border-green-900 hover:border-green-700 text-green-300 rounded p-3 text-center transition-colors col-span-2"
+          >
+            📥 Import Local Run
+          </router-link>
         </div>
 
         <div v-if="isDev" class="mt-4 text-sm">

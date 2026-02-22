@@ -145,6 +145,9 @@ const formatDateTime = (iso: string): string => {
   })
 }
 
+const isHashVerifiedImport = (row: GlobalLeaderboardRow): boolean =>
+  row.ingest_source === 'import_local' && row.integrity_status === 'hash_verified'
+
 onMounted(() => {
   refreshLocalLeaderboard()
   void refreshGlobalLeaderboard()
@@ -154,9 +157,17 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-black text-green-400 font-mono p-4 md:p-8">
     <div class="max-w-6xl mx-auto">
-      <div class="mb-6">
-        <h1 class="text-3xl font-bold mb-2">🏆 Leaderboard</h1>
-        <p class="text-green-600">Local + Global Benchmark Rankings</p>
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-3xl font-bold mb-2">🏆 Leaderboard</h1>
+          <p class="text-green-600">Local + Global Benchmark Rankings</p>
+        </div>
+        <router-link
+          to="/import"
+          class="btn btn-sm btn-outline border-cyan-700 text-cyan-200 hover:bg-cyan-800/40"
+        >
+          📥 Import Local Run
+        </router-link>
       </div>
 
       <div class="border border-green-800 rounded-lg p-4 mb-6">
@@ -326,6 +337,12 @@ onMounted(() => {
                     {{ modeLabel(row.mode) }}
                   </span>
                   <span class="font-bold">{{ row.scenario_name }}</span>
+                  <span
+                    v-if="isHashVerifiedImport(row)"
+                    class="text-[11px] px-2 py-1 rounded border border-cyan-600/80 text-cyan-200 bg-cyan-900/30"
+                  >
+                    Imported (hash-verified)
+                  </span>
                 </div>
                 <span class="text-xs text-cyan-600">{{ formatDateTime(row.created_at) }}</span>
               </div>

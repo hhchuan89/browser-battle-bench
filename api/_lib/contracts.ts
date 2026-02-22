@@ -1,5 +1,7 @@
 export type PublishMode = 'arena' | 'quick' | 'gauntlet' | 'stress'
 export type ShareGrade = 'S' | 'A' | 'B' | 'C' | 'F'
+export type IngestSource = 'live' | 'import_local'
+export type IntegrityStatus = 'hash_verified' | 'legacy'
 
 export interface PublishReportInput {
   mode: PublishMode
@@ -28,6 +30,8 @@ export interface PublishReportInput {
   os_name?: string | null
   browser_name?: string | null
   vram_gb?: number | null
+  ingest_source?: IngestSource | null
+  integrity_status?: IntegrityStatus | null
   report_summary: Record<string, unknown>
   bbb_report?: Record<string, unknown>
 }
@@ -60,6 +64,8 @@ export interface StoredReportRow {
   os_name?: string | null
   browser_name?: string | null
   vram_gb?: number | string | null
+  ingest_source?: string | null
+  integrity_status?: string | null
   report_summary?: Record<string, unknown> | null
   raw_json?: Record<string, unknown> | null
   created_at?: string | null
@@ -93,6 +99,8 @@ export interface PublicReportRecord {
   os_name?: string | null
   browser_name?: string | null
   vram_gb?: number | null
+  ingest_source: IngestSource
+  integrity_status: IntegrityStatus
   report_summary: Record<string, unknown>
   created_at: string
 }

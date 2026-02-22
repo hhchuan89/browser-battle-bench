@@ -37,6 +37,12 @@ const titleText = computed(() => {
   return `${modeLabel.value} · ${report.value.grade} ${report.value.score.toFixed(1)}`
 })
 
+const isHashVerifiedImport = computed(
+  () =>
+    report.value?.ingest_source === 'import_local' &&
+    report.value?.integrity_status === 'hash_verified'
+)
+
 const fmtPercent = (value?: number | null): string => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A'
   return `${value.toFixed(1)}%`
@@ -107,7 +113,15 @@ onMounted(() => {
     <div class="max-w-4xl mx-auto space-y-4">
       <div class="border border-green-800 rounded-lg p-4">
         <p class="text-green-600 text-sm">Public Battle Report</p>
-        <h1 class="text-3xl font-bold mt-1">{{ titleText }}</h1>
+        <div class="mt-1 flex flex-wrap items-center gap-2">
+          <h1 class="text-3xl font-bold">{{ titleText }}</h1>
+          <span
+            v-if="isHashVerifiedImport"
+            class="text-xs px-2 py-1 rounded border border-cyan-600 text-cyan-200 bg-cyan-900/20"
+          >
+            Imported (hash-verified)
+          </span>
+        </div>
       </div>
 
       <div v-if="loading" class="border border-green-900 rounded-lg p-6 text-center">
@@ -244,6 +258,14 @@ onMounted(() => {
           <p v-if="report.run_hash">
             <span class="text-green-600">Run Hash:</span>
             <span class="font-bold ml-2 break-all">{{ report.run_hash }}</span>
+          </p>
+          <p>
+            <span class="text-green-600">Ingest Source:</span>
+            <span class="font-bold ml-2">{{ report.ingest_source }}</span>
+          </p>
+          <p>
+            <span class="text-green-600">Integrity:</span>
+            <span class="font-bold ml-2">{{ report.integrity_status }}</span>
           </p>
         </div>
 

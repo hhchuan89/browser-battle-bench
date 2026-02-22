@@ -1,11 +1,13 @@
 import type { EnduranceReport } from '@/types/endurance'
-import type { BBBReportJson } from '@/types/report'
+import type { BBBRawOutputsFile, BBBReportJson } from '@/types/report'
 import type { ShareGrade, ShareMode, ShareResultPayload } from '@/types/share'
 import type { ScoredResponse } from '@/composables/useScorer'
 import type { HardwareSnapshot } from '@/lib/hardware-snapshot'
 import type { GladiatorIdentity } from '@/composables/useGladiatorIdentity'
 
 export type PublishMode = Exclude<ShareMode, 'history'>
+export type IngestSource = 'live' | 'import_local'
+export type IntegrityStatus = 'hash_verified' | 'legacy'
 
 export interface PublishReportRequest {
   mode: PublishMode
@@ -45,6 +47,16 @@ export interface PublishedShareLinks {
   og_image_url: string
 }
 
+export interface ImportLocalRunRequest {
+  gladiator_name: string
+  github_username?: string | null
+  device_id: string
+  bbb_report: BBBReportJson
+  bbb_raw_outputs: BBBRawOutputsFile
+}
+
+export type ImportLocalRunResponse = PublishedShareLinks
+
 export interface PublicReportRecord {
   id: string
   mode: PublishMode
@@ -73,6 +85,8 @@ export interface PublicReportRecord {
   os_name?: string | null
   browser_name?: string | null
   vram_gb?: number | null
+  ingest_source: IngestSource
+  integrity_status: IntegrityStatus
   report_summary: Record<string, unknown>
   created_at: string
 }
