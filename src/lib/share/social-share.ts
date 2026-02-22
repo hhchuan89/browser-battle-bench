@@ -5,14 +5,16 @@ export type SocialPlatform =
   | 'facebook'
   | 'linkedin'
   | 'reddit'
-  | 'telegram'
-  | 'whatsapp'
+  | 'threads'
+  | 'instagram'
 
 export interface SocialShareTarget {
   id: SocialPlatform
   label: string
   icon: string
   url: string
+  prefillSupported: boolean
+  composeText: string
 }
 
 const modeLabel = (mode: ShareResultPayload['mode']): string => {
@@ -46,6 +48,7 @@ export const buildSocialShareTargets = (
     payload.challengeUrl
   const encodedText = encodeURIComponent(shareText)
   const encodedUrl = encodeURIComponent(shareUrl)
+  const composedMessage = `${shareText} ${shareUrl}`.trim()
 
   return [
     {
@@ -53,36 +56,48 @@ export const buildSocialShareTargets = (
       label: 'X',
       icon: 'X',
       url: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      prefillSupported: true,
+      composeText: composedMessage,
     },
     {
       id: 'facebook',
       label: 'Facebook',
       icon: 'f',
       url: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      prefillSupported: true,
+      composeText: composedMessage,
     },
     {
       id: 'linkedin',
       label: 'LinkedIn',
       icon: 'in',
       url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      prefillSupported: true,
+      composeText: composedMessage,
     },
     {
       id: 'reddit',
       label: 'Reddit',
       icon: 'r/',
       url: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`,
+      prefillSupported: true,
+      composeText: composedMessage,
     },
     {
-      id: 'telegram',
-      label: 'Telegram',
-      icon: 'tg',
-      url: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
+      id: 'threads',
+      label: 'Threads',
+      icon: '@',
+      url: `https://www.threads.net/intent/post?text=${encodeURIComponent(composedMessage)}`,
+      prefillSupported: true,
+      composeText: composedMessage,
     },
     {
-      id: 'whatsapp',
-      label: 'WhatsApp',
-      icon: 'wa',
-      url: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
+      id: 'instagram',
+      label: 'Instagram',
+      icon: 'ig',
+      url: 'https://www.instagram.com/',
+      prefillSupported: false,
+      composeText: composedMessage,
     },
   ]
 }

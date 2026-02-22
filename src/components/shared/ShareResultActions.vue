@@ -157,6 +157,11 @@ const openSocialShare = async (target: SocialShareTarget) => {
   const ready = await ensurePublishedShareUrl()
   if (!ready) return
 
+  let copied = false
+  if (!target.prefillSupported) {
+    copied = await copyText(target.composeText)
+  }
+
   const popup = window.open(target.url, '_blank', 'noopener,noreferrer')
   if (!popup) {
     const reason = 'Unable to open share window. Please allow popups for this site.'
@@ -166,7 +171,13 @@ const openSocialShare = async (target: SocialShareTarget) => {
   }
 
   showSocialMenu.value = false
-  statusText.value = `Opened ${target.label}. Preview image should load automatically from the share link.`
+  if (target.prefillSupported) {
+    statusText.value = `Opened ${target.label}. Preview image should load automatically from the share link.`
+  } else {
+    statusText.value = copied
+      ? `Opened ${target.label}. Caption + link copied. Upload card manually in app.`
+      : `Opened ${target.label}. Use Download Card and paste caption manually.`
+  }
   emit('shared')
 }
 
@@ -235,7 +246,7 @@ const goNext = () => {
         </button>
       </div>
       <p class="text-[11px] text-base-content/60 mt-2">
-        Instagram/TikTok do not support direct web share prefill. Use Download Card for manual upload.
+        Instagram does not support direct web share prefill. Use Download Card for manual upload.
       </p>
     </div>
     <p v-if="statusText" class="text-xs text-base-content/70">

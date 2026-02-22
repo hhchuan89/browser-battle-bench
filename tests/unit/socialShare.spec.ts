@@ -43,12 +43,15 @@ describe('social share builder', () => {
       'facebook',
       'linkedin',
       'reddit',
-      'telegram',
-      'whatsapp',
+      'threads',
+      'instagram',
     ])
     expect(targets[0].url).toContain('twitter.com/intent/tweet')
     expect(targets[0].url).toContain(encodeURIComponent('/api/share/abc'))
     expect(targets[1].url).toContain('facebook.com/sharer')
     expect(targets[2].url).toContain('linkedin.com/sharing/share-offsite')
+    expect(targets[4].url).toContain('threads.net/intent/post')
+    expect(targets[5].url).toContain('instagram.com')
+    expect(targets[5].prefillSupported).toBe(false)
   })
 })
