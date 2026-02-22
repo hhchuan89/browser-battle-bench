@@ -119,6 +119,21 @@ const modeClass = (mode: string): string => {
 const modeLabel = (mode: string): string =>
   mode.charAt(0).toUpperCase() + mode.slice(1)
 
+const githubProfileUrl = (username?: string | null): string => {
+  const normalized = (username || '').trim().replace(/^@+/, '')
+  return `https://github.com/${normalized}`
+}
+
+const formatNullable = (value?: string | null, fallback = 'N/A'): string => {
+  const normalized = (value || '').trim()
+  return normalized || fallback
+}
+
+const formatVram = (value?: number | null): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A'
+  return `${value.toFixed(1)} GB`
+}
+
 const formatDateTime = (iso: string): string => {
   const date = new Date(iso)
   return date.toLocaleString('en-MY', {
@@ -315,7 +330,21 @@ onMounted(() => {
                 <span class="text-xs text-cyan-600">{{ formatDateTime(row.created_at) }}</span>
               </div>
 
-              <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+              <div class="flex flex-wrap items-center gap-2 mb-2 text-sm">
+                <span class="text-cyan-500">Gladiator:</span>
+                <span class="font-bold text-cyan-200">{{ row.gladiator_name || 'Anonymous' }}</span>
+                <a
+                  v-if="row.github_username"
+                  :href="githubProfileUrl(row.github_username)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-cyan-300 hover:text-cyan-100 underline underline-offset-2"
+                >
+                  @{{ row.github_username }}
+                </a>
+              </div>
+
+              <div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-sm">
                 <div>
                   <p class="text-cyan-500">Score</p>
                   <p class="font-bold">{{ row.score.toFixed(1) }}</p>
@@ -335,6 +364,29 @@ onMounted(() => {
                 <div>
                   <p class="text-cyan-500">Model</p>
                   <p class="font-bold break-all">{{ row.model_id }}</p>
+                </div>
+                <div>
+                  <p class="text-cyan-500">Canonical</p>
+                  <p class="font-bold break-all">{{ formatNullable(row.canonical_model_id) }}</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mt-2">
+                <div>
+                  <p class="text-cyan-500">GPU</p>
+                  <p class="font-bold break-all">{{ formatNullable(row.gpu_name, 'Unknown GPU') }}</p>
+                </div>
+                <div>
+                  <p class="text-cyan-500">OS</p>
+                  <p class="font-bold">{{ formatNullable(row.os_name) }}</p>
+                </div>
+                <div>
+                  <p class="text-cyan-500">Browser</p>
+                  <p class="font-bold">{{ formatNullable(row.browser_name) }}</p>
+                </div>
+                <div>
+                  <p class="text-cyan-500">VRAM</p>
+                  <p class="font-bold">{{ formatVram(row.vram_gb) }}</p>
                 </div>
               </div>
             </article>

@@ -270,6 +270,7 @@ import { buildBattleSharePayload } from '@/lib/share/share-payload';
 import { publishReport } from '@/lib/share/publish-report';
 import { buildBattlePublishRequest } from '@/lib/share/publish-normalizers';
 import type { PublishedShareLinks } from '@/lib/share/publish-types';
+import { loadGladiatorIdentity } from '@/composables/useGladiatorIdentity';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
@@ -406,6 +407,8 @@ const publishBattleShare = async (): Promise<PublishedShareLinks> => {
   const request = buildBattlePublishRequest({
     payload: battleSharePayload.value,
     report,
+    identity: loadGladiatorIdentity(),
+    hardware: hardwareSnapshot.value,
     tier: hardwareSnapshot.value?.tier,
   });
   const links = await publishReport(request);

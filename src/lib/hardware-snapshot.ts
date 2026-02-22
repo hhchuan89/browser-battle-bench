@@ -4,6 +4,10 @@ import { STORAGE_KEYS } from '@/lib/storage-keys'
 export interface HardwareSnapshot {
   tier: BBBHardwareReport['tier']
   gpu: BBBHardwareReport['gpu']
+  gpu_vendor?: string
+  gpu_raw?: string
+  os_name?: string
+  browser_name?: string
   estimated_vram_gb: BBBHardwareReport['estimated_vram_gb']
   is_mobile: boolean
   timestamp: string
@@ -44,6 +48,10 @@ export const loadHardwareSnapshot = (
     if (typeof parsed.estimated_vram_gb !== 'number') return null
     if (typeof parsed.is_mobile !== 'boolean') return null
     if (typeof parsed.timestamp !== 'string') return null
+    if (parsed.gpu_vendor !== undefined && typeof parsed.gpu_vendor !== 'string') return null
+    if (parsed.gpu_raw !== undefined && typeof parsed.gpu_raw !== 'string') return null
+    if (parsed.os_name !== undefined && typeof parsed.os_name !== 'string') return null
+    if (parsed.browser_name !== undefined && typeof parsed.browser_name !== 'string') return null
     return parsed
   } catch {
     return null

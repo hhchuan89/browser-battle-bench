@@ -10,6 +10,7 @@ import { buildStressSharePayload } from '@/lib/share/share-payload';
 import { publishReport } from '@/lib/share/publish-report';
 import { buildStressPublishRequest } from '@/lib/share/publish-normalizers';
 import type { PublishedShareLinks } from '@/lib/share/publish-types';
+import { loadGladiatorIdentity } from '@/composables/useGladiatorIdentity';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
@@ -77,6 +78,8 @@ const publishStressShare = async (): Promise<PublishedShareLinks> => {
   const request = buildStressPublishRequest({
     payload: stressSharePayload.value,
     report: finalReport.value,
+    identity: loadGladiatorIdentity(),
+    hardware: loadHardwareSnapshot(),
     tier: loadHardwareSnapshot()?.tier,
   });
   const links = await publishReport(request);

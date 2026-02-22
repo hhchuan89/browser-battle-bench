@@ -28,6 +28,10 @@ describe('hardware-snapshot', () => {
     const saved = saveHardwareSnapshot({
       tier: 'S',
       gpu: 'Test GPU',
+      gpu_vendor: 'Apple',
+      gpu_raw: 'ANGLE (Apple, Test GPU, OpenGL 4.1)',
+      os_name: 'macOS',
+      browser_name: 'Chrome',
       estimated_vram_gb: 16,
       is_mobile: false,
       timestamp: '2026-02-18T00:00:00.000Z',
@@ -37,6 +41,10 @@ describe('hardware-snapshot', () => {
     expect(loadHardwareSnapshot(storage)).toEqual({
       tier: 'S',
       gpu: 'Test GPU',
+      gpu_vendor: 'Apple',
+      gpu_raw: 'ANGLE (Apple, Test GPU, OpenGL 4.1)',
+      os_name: 'macOS',
+      browser_name: 'Chrome',
       estimated_vram_gb: 16,
       is_mobile: false,
       timestamp: '2026-02-18T00:00:00.000Z',

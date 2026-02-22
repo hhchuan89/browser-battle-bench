@@ -1,139 +1,152 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGatekeeper } from '@/composables/useGatekeeper'
+import { detectHardwareProfile } from '@/lib/hardware-detect'
 
-const originalNavigator = globalThis.navigator
+vi.mock('@/lib/hardware-detect', () => ({
+  detectHardwareProfile: vi.fn(),
+}))
+
+vi.mock('@/lib/hardware-snapshot', () => ({
+  saveHardwareSnapshot: vi.fn(),
+}))
+
+const detectHardwareProfileMock = vi.mocked(detectHardwareProfile)
+
 const originalFetch = globalThis.fetch
 const originalAbortSignal = globalThis.AbortSignal
-const originalWindow = (globalThis as any).window
+const originalWindow = (globalThis as { window?: Window }).window
 
-const setNavigator = (value: any) => {
-  Object.defineProperty(globalThis, 'navigator', {
-    value,
+const restoreWindow = () => {
+  if (originalWindow === undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete (globalThis as { window?: Window }).window
+    return
+  }
+  Object.defineProperty(globalThis, 'window', {
+    value: originalWindow,
     configurable: true,
   })
 }
 
-const restoreGlobals = () => {
-  if (originalNavigator === undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (globalThis as any).navigator
-  } else {
-    Object.defineProperty(globalThis, 'navigator', {
-      value: originalNavigator,
-      configurable: true,
-    })
-  }
-
-  if (originalFetch === undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (globalThis as any).fetch
-  } else {
-    globalThis.fetch = originalFetch
-  }
-
-  if (originalAbortSignal === undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (globalThis as any).AbortSignal
-  } else {
-    globalThis.AbortSignal = originalAbortSignal
-  }
-
-  if (originalWindow === undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (globalThis as any).window
-  } else {
-    Object.defineProperty(globalThis, 'window', {
-      value: originalWindow,
-      configurable: true,
-    })
-  }
-}
-
 beforeEach(() => {
-  vi.restoreAllMocks()
+  vi.resetAllMocks()
+  detectHardwareProfileMock.mockResolvedValue({
+    hasWebGPU: true,
+    gpuName: 'Apple M4',
+    gpuVendor: 'Apple',
+    gpuRaw: 'ANGLE (Apple, Apple M4, OpenGL 4.1)',
+    vramGb: 16,
+    isMobile: false,
+    browserName: 'Chrome',
+    osName: 'macOS',
+    gpuStatus: 'webgpu',
+  })
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error('ollama unavailable')) as any
   if (!globalThis.AbortSignal || typeof (globalThis.AbortSignal as any).timeout !== 'function') {
     globalThis.AbortSignal = {
       ...(globalThis.AbortSignal as any),
       timeout: () => new AbortController().signal,
     } as any
   }
-  globalThis.fetch = vi.fn().mockRejectedValue(new Error('ollama unavailable')) as any
+  Object.defineProperty(globalThis, 'window', {
+    value: {
+      location: {
+        protocol: 'http:',
+        hostname: 'localhost',
+      },
+    },
+    configurable: true,
+  })
 })
 
 afterEach(() => {
-  restoreGlobals()
+  if (originalFetch === undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete (globalThis as { fetch?: typeof fetch }).fetch
+  } else {
+    globalThis.fetch = originalFetch
+  }
+
+  if (originalAbortSignal === undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete (globalThis as { AbortSignal?: typeof AbortSignal }).AbortSignal
+  } else {
+    globalThis.AbortSignal = originalAbortSignal
+  }
+
+  restoreWindow()
 })
 
 describe('useGatekeeper', () => {
-  it('returns tier F when WebGPU is unavailable', async () => {
-    setNavigator({ userAgent: 'Mozilla/5.0 (Macintosh)' })
-
+  it('assigns tier S for strong desktop profile', async () => {
     const { scan, result } = useGatekeeper()
     await scan()
 
-    expect(result.value?.hasWebGPU).toBe(false)
-    expect(result.value?.tier).toBe('F')
-    expect(result.value?.vramGb).toBe(0)
-    expect(result.value?.gpuName).toBe('Unknown')
-  })
-
-  it('detects Apple Silicon UA and assigns tier S with GPU info', async () => {
-    setNavigator({
-      userAgent: 'Mozilla/5.0 (Macintosh; M1 Pro)',
-      gpu: {
-        requestAdapter: vi.fn().mockResolvedValue({
-          requestAdapterInfo: vi.fn().mockResolvedValue({ deviceName: 'Apple GPU' }),
-        }),
-      },
-    })
-
-    const { scan, result } = useGatekeeper()
-    await scan()
-
-    expect(result.value?.hasWebGPU).toBe(true)
-    expect(result.value?.gpuName).toBe('Apple GPU')
-    expect(result.value?.vramGb).toBe(16)
     expect(result.value?.tier).toBe('S')
+    expect(result.value?.gpuName).toBe('Apple M4')
+    expect(result.value?.gpuVendor).toBe('Apple')
+    expect(result.value?.browserName).toBe('Chrome')
+    expect(result.value?.osName).toBe('macOS')
   })
 
-  it('overrides to mobile tier when UA is mobile', async () => {
-    setNavigator({
-      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
-      gpu: {
-        requestAdapter: vi.fn().mockResolvedValue(null),
-      },
+  it('assigns tier F when WebGPU is unavailable', async () => {
+    detectHardwareProfileMock.mockResolvedValueOnce({
+      hasWebGPU: false,
+      gpuName: 'Unknown',
+      gpuVendor: 'Unknown',
+      gpuRaw: 'Unknown',
+      vramGb: 8,
+      isMobile: false,
+      browserName: 'Chrome',
+      osName: 'macOS',
+      gpuStatus: 'unknown',
     })
 
     const { scan, result } = useGatekeeper()
     await scan()
 
-    expect(result.value?.hasWebGPU).toBe(true)
-    expect(result.value?.isMobile).toBe(true)
-    expect(result.value?.tier).toBe('M')
+    expect(result.value?.tier).toBe('F')
+    expect(result.value?.hasWebGPU).toBe(false)
   })
 
-  it('captures Ollama availability and model list', async () => {
+  it('assigns tier M for mobile profile even with WebGPU', async () => {
+    detectHardwareProfileMock.mockResolvedValueOnce({
+      hasWebGPU: true,
+      gpuName: 'Apple A17',
+      gpuVendor: 'Apple',
+      gpuRaw: 'ANGLE (Apple, Apple A17, OpenGL 4.1)',
+      vramGb: 6,
+      isMobile: true,
+      browserName: 'Safari',
+      osName: 'iOS',
+      gpuStatus: 'webgl',
+    })
+
+    const { scan, result } = useGatekeeper()
+    await scan()
+
+    expect(result.value?.tier).toBe('M')
+    expect(result.value?.gpuStatus).toBe('webgl')
+  })
+
+  it('captures Ollama availability and model list on localhost', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        models: [{ name: 'llama3:8b' }, { name: 'mistral:7b' }],
+        models: [{ name: 'llama3:8b' }, { name: 'qwen2.5:7b' }],
       }),
     }) as any
-
-    setNavigator({ userAgent: 'Mozilla/5.0 (Macintosh)' })
 
     const { scan, result } = useGatekeeper()
     await scan()
 
     expect(result.value?.ollamaAvailable).toBe(true)
-    expect(result.value?.ollamaModels).toEqual(['llama3:8b', 'mistral:7b'])
+    expect(result.value?.ollamaModels).toEqual(['llama3:8b', 'qwen2.5:7b'])
+    expect(result.value?.ollamaStatus).toBe('connected')
   })
 
   it('skips Ollama probe on secure non-loopback origins', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ models: [{ name: 'llama3:8b' }] }),
-    })
+    const fetchMock = vi.fn()
     globalThis.fetch = fetchMock as any
 
     Object.defineProperty(globalThis, 'window', {
@@ -146,13 +159,11 @@ describe('useGatekeeper', () => {
       configurable: true,
     })
 
-    setNavigator({ userAgent: 'Mozilla/5.0 (Macintosh)' })
-
     const { scan, result } = useGatekeeper()
     await scan()
 
     expect(fetchMock).not.toHaveBeenCalled()
+    expect(result.value?.ollamaStatus).toBe('skipped-remote-https')
     expect(result.value?.ollamaAvailable).toBe(false)
-    expect(result.value?.ollamaModels).toEqual([])
   })
 })

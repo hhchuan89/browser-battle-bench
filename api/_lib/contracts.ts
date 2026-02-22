@@ -15,6 +15,19 @@ export interface PublishReportInput {
   run_hash?: string | null
   replay_hash?: string | null
   source_run_ref?: string | null
+  gladiator_name: string
+  github_username?: string | null
+  device_id: string
+  canonical_model_id?: string | null
+  model_family?: string | null
+  param_size?: string | null
+  quantization?: string | null
+  gpu_name?: string | null
+  gpu_vendor?: string | null
+  gpu_raw?: string | null
+  os_name?: string | null
+  browser_name?: string | null
+  vram_gb?: number | null
   report_summary: Record<string, unknown>
   bbb_report?: Record<string, unknown>
 }
@@ -34,6 +47,19 @@ export interface StoredReportRow {
   run_hash?: string | null
   replay_hash?: string | null
   source_run_ref?: string | null
+  gladiator_name?: string | null
+  github_username?: string | null
+  device_id?: string | null
+  canonical_model_id?: string | null
+  model_family?: string | null
+  param_size?: string | null
+  quantization?: string | null
+  gpu_name?: string | null
+  gpu_vendor?: string | null
+  gpu_raw?: string | null
+  os_name?: string | null
+  browser_name?: string | null
+  vram_gb?: number | string | null
   report_summary?: Record<string, unknown> | null
   raw_json?: Record<string, unknown> | null
   created_at?: string | null
@@ -54,6 +80,19 @@ export interface PublicReportRecord {
   run_hash?: string | null
   replay_hash?: string | null
   source_run_ref?: string | null
+  gladiator_name: string
+  github_username?: string | null
+  device_id: string
+  canonical_model_id?: string | null
+  model_family?: string | null
+  param_size?: string | null
+  quantization?: string | null
+  gpu_name?: string | null
+  gpu_vendor?: string | null
+  gpu_raw?: string | null
+  os_name?: string | null
+  browser_name?: string | null
+  vram_gb?: number | null
   report_summary: Record<string, unknown>
   created_at: string
 }

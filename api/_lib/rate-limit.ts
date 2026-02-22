@@ -43,9 +43,18 @@ export const enforceUploadRateLimit = async (
   request: Request
 ): Promise<{ allowed: boolean; reason?: string }> => {
   const env = loadServerEnv()
-  const ip = getClientIp(request)
+  const clientIp = getClientIp(request)
+  const ip = clientIp && clientIp !== 'unknown' ? clientIp : 'unknown-shared'
   const ipHash = buildIpHash(ip, env.rateLimitSalt)
   const windowStart = toIsoWindowStart(env.uploadWindowMinutes)
+  const effectiveLimit =
+    ip === 'unknown-shared'
+      ? Math.max(3, Math.floor(env.uploadLimitPerWindow / 2))
+      : env.uploadLimitPerWindow
+
+  if (ip === 'unknown-shared') {
+    console.warn('[bbb-rate-limit] client IP unavailable, applying shared unknown bucket')
+  }
 
   try {
     const selected = await supabaseRest<GuardRow[] | GuardRow>(
@@ -71,10 +80,10 @@ export const enforceUploadRateLimit = async (
     const currentWindow = isCurrentWindow(row.window_start, env.uploadWindowMinutes)
     const currentHits = currentWindow ? Number(row.hit_count || 0) : 0
 
-    if (currentHits >= env.uploadLimitPerWindow) {
+    if (currentHits >= effectiveLimit) {
       return {
         allowed: false,
-        reason: `Rate limit exceeded. Max ${env.uploadLimitPerWindow} uploads per ${env.uploadWindowMinutes} minutes.`,
+        reason: `Rate limit exceeded. Max ${effectiveLimit} uploads per ${env.uploadWindowMinutes} minutes.`,
       }
     }
 

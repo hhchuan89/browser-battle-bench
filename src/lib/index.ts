@@ -1,4 +1,4 @@
-export { detectWebGPU, isMobileDevice, getDeviceMemory } from './hardware-detect'
+export { detectHardwareProfile } from './hardware-detect'
 export { normalizeAnswer, extractNumber, stripNonNumeric, isValidJSON, safeJSONParse } from './answer-normalize'
 export { getModelFingerprint, getModelFingerprintDetailed, isSameModelVersion } from './model-fingerprint'
 export {

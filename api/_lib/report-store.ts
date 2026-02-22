@@ -1,4 +1,11 @@
-import type { PublicReportRecord, PublishMode, PublishReportInput, ShareGrade, StoredReportRow } from './contracts.js'
+import type {
+  PublicReportRecord,
+  PublishMode,
+  PublishReportInput,
+  ShareGrade,
+  StoredReportRow,
+} from './contracts.js'
+import { normalizeModelId } from './model-normalize.js'
 import { SupabaseRestError, supabaseRest } from './supabase.js'
 
 const DEFAULT_MODE: PublishMode = 'quick'
@@ -11,7 +18,9 @@ const firstRow = <T>(value: T[] | T | null | undefined): T | undefined => {
 }
 
 const toNullableNumber = (value: unknown): number | null => {
-  if (typeof value === 'number') return Number.isFinite(value) ? Math.round(value * 100) / 100 : null
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.round(value * 100) / 100 : null
+  }
   if (typeof value === 'string') {
     const parsed = Number.parseFloat(value)
     return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null
@@ -51,6 +60,30 @@ const firstGrade = (...values: unknown[]): ShareGrade => {
   return VALID_GRADES.includes(grade as ShareGrade) ? (grade as ShareGrade) : 'C'
 }
 
+const readErrorMessage = (error: unknown): string => {
+  if (!(error instanceof SupabaseRestError)) {
+    return error instanceof Error ? error.message : String(error)
+  }
+
+  const payload = error.payload
+  if (typeof payload === 'object' && payload !== null && 'message' in payload) {
+    return String((payload as { message?: unknown }).message || error.message)
+  }
+
+  return error.message
+}
+
+const isSchemaDriftError = (error: unknown): boolean => {
+  const message = readErrorMessage(error).toLowerCase()
+  return (
+    message.includes('column') ||
+    message.includes('schema cache') ||
+    message.includes('record') ||
+    message.includes('could not find') ||
+    message.includes('does not exist')
+  )
+}
+
 const buildLegacyRawJson = (payload: PublishReportInput): Record<string, unknown> => ({
   mode: payload.mode,
   scenario_id: payload.scenario_id,
@@ -65,29 +98,60 @@ const buildLegacyRawJson = (payload: PublishReportInput): Record<string, unknown
   run_hash: payload.run_hash ?? null,
   replay_hash: payload.replay_hash ?? null,
   source_run_ref: payload.source_run_ref ?? null,
+  gladiator_name: payload.gladiator_name,
+  github_username: payload.github_username ?? null,
+  device_id: payload.device_id,
+  canonical_model_id: payload.canonical_model_id ?? null,
+  model_family: payload.model_family ?? null,
+  param_size: payload.param_size ?? null,
+  quantization: payload.quantization ?? null,
+  gpu_name: payload.gpu_name ?? null,
+  gpu_vendor: payload.gpu_vendor ?? null,
+  gpu_raw: payload.gpu_raw ?? null,
+  os_name: payload.os_name ?? null,
+  browser_name: payload.browser_name ?? null,
+  vram_gb: payload.vram_gb ?? null,
   report_summary: payload.report_summary,
 })
 
-const shouldUseLegacyInsert = (error: unknown): boolean => {
-  if (!(error instanceof SupabaseRestError)) return false
-  const payload = error.payload
-  const message =
-    typeof payload === 'object' && payload !== null && 'message' in payload
-      ? String((payload as { message?: unknown }).message)
-      : error.message
+const mergePublishMeta = (
+  summary: Record<string, unknown>,
+  payload: PublishReportInput,
+  normalizedModel: ReturnType<typeof normalizeModelId>
+): Record<string, unknown> => {
+  const existingMeta = asRecord(summary._bbb_publish_meta)
 
-  return (
-    message.includes('column') ||
-    message.includes('record') ||
-    message.includes('schema cache') ||
-    message.includes('could not find')
-  )
+  return {
+    ...summary,
+    _bbb_publish_meta: {
+      ...(existingMeta || {}),
+      identity: {
+        gladiator_name: payload.gladiator_name,
+        github_username: payload.github_username ?? null,
+        device_id: payload.device_id,
+      },
+      canonical_model: normalizedModel,
+      self_reported_hardware: {
+        gpu_name: payload.gpu_name ?? null,
+        gpu_vendor: payload.gpu_vendor ?? null,
+        gpu_raw: payload.gpu_raw ?? null,
+        os_name: payload.os_name ?? null,
+        browser_name: payload.browser_name ?? null,
+        vram_gb: payload.vram_gb ?? null,
+        source: 'self-reported',
+      },
+    },
+  }
 }
 
 const toPublicReport = (row: StoredReportRow): PublicReportRecord => {
   const summary = asRecord(row.report_summary)
   const raw = asRecord(row.raw_json)
   const rawSummary = asRecord(raw?.report_summary)
+  const summaryMeta = asRecord(summary?._bbb_publish_meta)
+  const identityMeta = asRecord(summaryMeta?.identity)
+  const canonicalMeta = asRecord(summaryMeta?.canonical_model)
+  const hardwareMeta = asRecord(summaryMeta?.self_reported_hardware)
 
   const mode = firstMode(row.mode, raw?.mode)
   const scenarioId =
@@ -131,13 +195,56 @@ const toPublicReport = (row: StoredReportRow): PublicReportRecord => {
       summary?.source_run_ref,
       raw?.source_run_ref
     ),
+    gladiator_name:
+      firstString(row.gladiator_name, identityMeta?.gladiator_name, raw?.gladiator_name) ||
+      'Anonymous',
+    github_username: firstString(
+      row.github_username,
+      identityMeta?.github_username,
+      raw?.github_username
+    ),
+    device_id:
+      firstString(row.device_id, identityMeta?.device_id, raw?.device_id) ||
+      'unknown-device',
+    canonical_model_id: firstString(
+      row.canonical_model_id,
+      canonicalMeta?.canonical_model_id,
+      raw?.canonical_model_id
+    ),
+    model_family: firstString(
+      row.model_family,
+      canonicalMeta?.model_family,
+      raw?.model_family
+    ),
+    param_size: firstString(
+      row.param_size,
+      canonicalMeta?.param_size,
+      raw?.param_size
+    ),
+    quantization: firstString(
+      row.quantization,
+      canonicalMeta?.quantization,
+      raw?.quantization
+    ),
+    gpu_name: firstString(row.gpu_name, hardwareMeta?.gpu_name, raw?.gpu_name),
+    gpu_vendor: firstString(row.gpu_vendor, hardwareMeta?.gpu_vendor, raw?.gpu_vendor),
+    gpu_raw: firstString(row.gpu_raw, hardwareMeta?.gpu_raw, raw?.gpu_raw),
+    os_name: firstString(row.os_name, hardwareMeta?.os_name, raw?.os_name),
+    browser_name: firstString(row.browser_name, hardwareMeta?.browser_name, raw?.browser_name),
+    vram_gb:
+      toNullableNumber(row.vram_gb) ??
+      toNullableNumber(hardwareMeta?.vram_gb) ??
+      toNullableNumber(raw?.vram_gb),
     report_summary: summary || rawSummary || raw || {},
     created_at: firstString(row.created_at) || new Date(0).toISOString(),
   }
 }
 
-export const insertReport = async (payload: PublishReportInput): Promise<PublicReportRecord> => {
-  const fullRow = {
+const buildFullInsertRow = (payload: PublishReportInput) => {
+  const normalizedModel = normalizeModelId(payload.model_id)
+  const mergedSummary = mergePublishMeta(payload.report_summary, payload, normalizedModel)
+
+  return {
     mode: payload.mode,
     scenario_id: payload.scenario_id,
     scenario_name: payload.scenario_name,
@@ -151,46 +258,134 @@ export const insertReport = async (payload: PublishReportInput): Promise<PublicR
     run_hash: payload.run_hash ?? null,
     replay_hash: payload.replay_hash ?? null,
     source_run_ref: payload.source_run_ref ?? null,
-    report_summary: payload.report_summary,
+    gladiator_name: payload.gladiator_name,
+    github_username: payload.github_username ?? null,
+    device_id: payload.device_id,
+    canonical_model_id: normalizedModel.canonical_model_id,
+    model_family: normalizedModel.model_family,
+    param_size: normalizedModel.param_size,
+    quantization: normalizedModel.quantization,
+    gpu_name: payload.gpu_name ?? null,
+    gpu_vendor: payload.gpu_vendor ?? null,
+    gpu_raw: payload.gpu_raw ?? null,
+    os_name: payload.os_name ?? null,
+    browser_name: payload.browser_name ?? null,
+    vram_gb: payload.vram_gb ?? null,
+    report_summary: mergedSummary,
+  }
+}
+
+const buildSchemaFallbackRow = (
+  payload: PublishReportInput,
+  mergedSummary?: Record<string, unknown>
+) => ({
+  mode: payload.mode,
+  scenario_id: payload.scenario_id,
+  scenario_name: payload.scenario_name,
+  model_id: payload.model_id,
+  score: payload.score,
+  grade: payload.grade,
+  tier: payload.tier,
+  pass_rate: payload.pass_rate ?? null,
+  total_rounds: payload.total_rounds ?? null,
+  passed_rounds: payload.passed_rounds ?? null,
+  run_hash: payload.run_hash ?? null,
+  replay_hash: payload.replay_hash ?? null,
+  source_run_ref: payload.source_run_ref ?? null,
+  report_summary: mergedSummary || payload.report_summary,
+})
+
+const insertAndRead = async (body: Record<string, unknown>): Promise<PublicReportRecord> => {
+  const inserted = await supabaseRest<StoredReportRow[] | StoredReportRow>('bbb_reports?select=*', {
+    method: 'POST',
+    headers: {
+      Prefer: 'return=representation',
+    },
+    body,
+  })
+
+  const row = firstRow(inserted.data)
+  if (!row || !row.id) {
+    throw new Error('Insert succeeded but no row returned')
+  }
+  return toPublicReport(row)
+}
+
+const findExistingByRunHash = async (runHash: string): Promise<PublicReportRecord | null> => {
+  try {
+    const selected = await supabaseRest<StoredReportRow[] | StoredReportRow>(
+      `bbb_reports?run_hash=eq.${encodeURIComponent(runHash)}&select=*&limit=1`
+    )
+    const row = firstRow(selected.data)
+    return row ? toPublicReport(row) : null
+  } catch (error) {
+    if (isSchemaDriftError(error)) return null
+    throw error
+  }
+}
+
+const findExistingByModeAndSourceRef = async (
+  mode: PublishMode,
+  sourceRunRef: string
+): Promise<PublicReportRecord | null> => {
+  try {
+    const selected = await supabaseRest<StoredReportRow[] | StoredReportRow>(
+      `bbb_reports?mode=eq.${encodeURIComponent(mode)}&source_run_ref=eq.${encodeURIComponent(sourceRunRef)}&select=*&limit=1`
+    )
+    const row = firstRow(selected.data)
+    return row ? toPublicReport(row) : null
+  } catch (error) {
+    if (isSchemaDriftError(error)) return null
+    throw error
+  }
+}
+
+export const insertReport = async (payload: PublishReportInput): Promise<PublicReportRecord> => {
+  if (payload.run_hash) {
+    const byRunHash = await findExistingByRunHash(payload.run_hash)
+    if (byRunHash) return byRunHash
   }
 
-  try {
-    const inserted = await supabaseRest<StoredReportRow[] | StoredReportRow>(`bbb_reports?select=*`, {
-      method: 'POST',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: fullRow,
-    })
+  if (
+    (payload.mode === 'arena' || payload.mode === 'stress') &&
+    payload.source_run_ref
+  ) {
+    const bySourceRef = await findExistingByModeAndSourceRef(
+      payload.mode,
+      payload.source_run_ref
+    )
+    if (bySourceRef) return bySourceRef
+  }
 
-    const row = firstRow(inserted.data)
-    if (!row || !row.id) throw new Error('Insert succeeded but no row returned')
-    return toPublicReport(row)
+  const fullInsertRow = buildFullInsertRow(payload)
+  try {
+    return await insertAndRead(fullInsertRow)
   } catch (error) {
-    if (!shouldUseLegacyInsert(error)) {
+    if (!isSchemaDriftError(error)) {
       throw error
     }
-
-    const legacyRow = {
-      model_id: payload.model_id,
-      score: Math.round(payload.score),
-      grade: payload.grade,
-      tier: payload.tier,
-      raw_json: buildLegacyRawJson(payload),
-    }
-
-    const inserted = await supabaseRest<StoredReportRow[] | StoredReportRow>(`bbb_reports?select=*`, {
-      method: 'POST',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: legacyRow,
-    })
-
-    const row = firstRow(inserted.data)
-    if (!row || !row.id) throw new Error('Legacy insert succeeded but no row returned')
-    return toPublicReport(row)
   }
+
+  const schemaFallbackRow = buildSchemaFallbackRow(
+    payload,
+    fullInsertRow.report_summary as Record<string, unknown>
+  )
+  try {
+    return await insertAndRead(schemaFallbackRow)
+  } catch (error) {
+    if (!isSchemaDriftError(error)) {
+      throw error
+    }
+  }
+
+  const legacyRow = {
+    model_id: payload.model_id,
+    score: Math.round(payload.score),
+    grade: payload.grade,
+    tier: payload.tier,
+    raw_json: buildLegacyRawJson(payload),
+  }
+  return insertAndRead(legacyRow)
 }
 
 export const getReportById = async (id: string): Promise<PublicReportRecord | null> => {
@@ -214,11 +409,13 @@ export const listReports = async (options?: {
     `bbb_reports?select=*&order=score.desc,created_at.desc&limit=${safeLimit}`
   )
 
-  const rows = Array.isArray(selected.data) ? selected.data : selected.data ? [selected.data] : []
+  const rows = Array.isArray(selected.data)
+    ? selected.data
+    : selected.data
+      ? [selected.data]
+      : []
 
-  const normalized = rows
-    .filter((row) => !!row.id)
-    .map((row) => toPublicReport(row))
+  const normalized = rows.filter((row) => !!row.id).map((row) => toPublicReport(row))
 
   if (!options?.mode || options.mode === 'all') {
     return normalized

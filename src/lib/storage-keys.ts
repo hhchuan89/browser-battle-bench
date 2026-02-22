@@ -2,6 +2,8 @@ export const STORAGE_KEYS = {
   selectedModel: 'bbb:selectedModel',
   runHistory: 'bbb:run-history:v1',
   hardwareSnapshot: 'bbb:hardwareSnapshot',
+  gladiatorIdentity: 'bbb:gladiatorIdentity:v1',
+  deviceId: 'bbb:deviceId:v1',
   quickResults: 'bbb:quick-results:v1',
   gistAuth: 'bbb:gist-auth:v1',
   gistLeaderboardSources: 'bbb:gist-leaderboard-sources:v1',

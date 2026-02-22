@@ -1,7 +1,9 @@
 import type { PublishMode, PublishReportInput, ShareGrade } from './contracts.js'
+import { isUuidLike } from './id.js'
 
 const VALID_MODES: PublishMode[] = ['arena', 'quick', 'gauntlet', 'stress']
 const VALID_GRADES: ShareGrade[] = ['S', 'A', 'B', 'C', 'F']
+const GITHUB_USERNAME_REGEX = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/
 
 interface ValidationOk {
   ok: true
@@ -91,6 +93,28 @@ const readGrade = (value: unknown): ShareGrade => {
   return grade as ShareGrade
 }
 
+const readDeviceId = (value: unknown): string => {
+  const deviceId = readTrimmedString(value, 'device_id', 64, true)
+  if (!deviceId || !isUuidLike(deviceId)) {
+    throw new Error('device_id must be a valid UUID')
+  }
+  return deviceId
+}
+
+const readGithubUsername = (value: unknown): string | null => {
+  const raw = readTrimmedString(value, 'github_username', 64, false)
+  if (!raw) return null
+  const normalized = raw.replace(/^@+/, '')
+  if (!normalized) return null
+  if (normalized.length > 39) {
+    throw new Error('github_username exceeds max length (39)')
+  }
+  if (!GITHUB_USERNAME_REGEX.test(normalized)) {
+    throw new Error('github_username contains invalid characters')
+  }
+  return normalized
+}
+
 const validateBbbReport = (input: PublishReportInput): void => {
   if (input.mode !== 'quick' && input.mode !== 'gauntlet') return
   if (!input.bbb_report) return
@@ -146,8 +170,25 @@ export const validatePublishReportInput = (raw: unknown): ValidationResult => {
       run_hash: readTrimmedString(raw.run_hash, 'run_hash', 128, false),
       replay_hash: readTrimmedString(raw.replay_hash, 'replay_hash', 128, false),
       source_run_ref: readTrimmedString(raw.source_run_ref, 'source_run_ref', 128, false),
+      gladiator_name: readTrimmedString(raw.gladiator_name, 'gladiator_name', 32, true) as string,
+      github_username: readGithubUsername(raw.github_username),
+      device_id: readDeviceId(raw.device_id),
+      canonical_model_id: readTrimmedString(raw.canonical_model_id, 'canonical_model_id', 160, false),
+      model_family: readTrimmedString(raw.model_family, 'model_family', 64, false),
+      param_size: readTrimmedString(raw.param_size, 'param_size', 32, false),
+      quantization: readTrimmedString(raw.quantization, 'quantization', 64, false),
+      gpu_name: readTrimmedString(raw.gpu_name, 'gpu_name', 200, false),
+      gpu_vendor: readTrimmedString(raw.gpu_vendor, 'gpu_vendor', 120, false),
+      gpu_raw: readTrimmedString(raw.gpu_raw, 'gpu_raw', 400, false),
+      os_name: readTrimmedString(raw.os_name, 'os_name', 120, false),
+      browser_name: readTrimmedString(raw.browser_name, 'browser_name', 120, false),
+      vram_gb: readNumber(raw.vram_gb, 'vram_gb', 0, 1024, false),
       report_summary: summary,
       bbb_report: bbbReport ? (bbbReport as Record<string, unknown>) : undefined,
+    }
+
+    if (value.gladiator_name.length < 2) {
+      throw new Error('gladiator_name must be at least 2 characters')
     }
 
     validateBbbReport(value)

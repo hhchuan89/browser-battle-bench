@@ -1,5 +1,7 @@
 import { averageShareScore } from '@/lib/share/share-metrics'
 import { normalizeScore } from '@/lib/share/share-grade'
+import { canonicalizeModelId } from '@/data/model-registry'
+import type { BBBHardwareReport } from '@/types/report'
 import type {
   BuildArenaPublishInput,
   BuildBattlePublishInput,
@@ -19,27 +21,76 @@ const toNullableInt = (value: unknown): number | null => {
   return Number.isFinite(value) ? Math.round(value) : null
 }
 
+const resolveIdentity = (input: {
+  gladiator_name: string
+  github_username?: string | null
+  device_id: string
+}): Pick<PublishReportRequest, 'gladiator_name' | 'github_username' | 'device_id'> => {
+  const gladiatorName = input.gladiator_name.trim()
+  if (!gladiatorName) {
+    throw new Error('Missing gladiator identity before publishing.')
+  }
+
+  return {
+    gladiator_name: gladiatorName,
+    github_username: input.github_username?.trim() || null,
+    device_id: input.device_id,
+  }
+}
+
+const resolveHardware = (input: {
+  hardware?: BuildArenaPublishInput['hardware'] | BuildBattlePublishInput['hardware'] | BuildStressPublishInput['hardware']
+  reportHardware?: BBBHardwareReport
+}): Pick<
+  PublishReportRequest,
+  'gpu_name' | 'gpu_vendor' | 'gpu_raw' | 'os_name' | 'browser_name' | 'vram_gb'
+> => {
+  return {
+    gpu_name: input.hardware?.gpu || input.reportHardware?.gpu || null,
+    gpu_vendor: input.hardware?.gpu_vendor || null,
+    gpu_raw: input.hardware?.gpu_raw || null,
+    os_name: input.hardware?.os_name || input.reportHardware?.os || null,
+    browser_name: input.hardware?.browser_name || input.reportHardware?.browser || null,
+    vram_gb:
+      typeof input.hardware?.estimated_vram_gb === 'number'
+        ? input.hardware.estimated_vram_gb
+        : typeof input.reportHardware?.estimated_vram_gb === 'number'
+          ? input.reportHardware.estimated_vram_gb
+          : null,
+  }
+}
+
 export const buildArenaPublishRequest = (
   input: BuildArenaPublishInput
-): PublishReportRequest => ({
-  mode: 'arena',
-  scenario_id: input.payload.scenarioId,
-  scenario_name: input.payload.scenarioName,
-  model_id: input.payload.modelId,
-  score: normalizeScore(input.score.totalScore),
-  grade: input.payload.grade,
-  tier: resolveTier(input.tier),
-  source_run_ref: input.payload.runRef || null,
-  report_summary: {
+): PublishReportRequest => {
+  const model = canonicalizeModelId(input.payload.modelId)
+
+  return {
     mode: 'arena',
-    hardware_label: input.payload.hardwareLabel,
-    taunt: input.payload.taunt,
-    scores: input.payload.scores,
-    breakdown: input.score.breakdown,
-    warnings: input.score.warnings,
-    errors: input.score.errors,
-  },
-})
+    scenario_id: input.payload.scenarioId,
+    scenario_name: input.payload.scenarioName,
+    model_id: input.payload.modelId,
+    score: normalizeScore(input.score.totalScore),
+    grade: input.payload.grade,
+    tier: resolveTier(input.tier),
+    source_run_ref: input.payload.runRef || null,
+    canonical_model_id: model.canonical_model_id,
+    model_family: model.model_family,
+    param_size: model.param_size,
+    quantization: model.quantization,
+    ...resolveIdentity(input.identity),
+    ...resolveHardware({ hardware: input.hardware }),
+    report_summary: {
+      mode: 'arena',
+      hardware_label: input.payload.hardwareLabel,
+      taunt: input.payload.taunt,
+      scores: input.payload.scores,
+      breakdown: input.score.breakdown,
+      warnings: input.score.warnings,
+      errors: input.score.errors,
+    },
+  }
+}
 
 export const buildBattlePublishRequest = (
   input: BuildBattlePublishInput
@@ -48,6 +99,7 @@ export const buildBattlePublishRequest = (
   const logicTrapsDetails = primaryModel?.phases?.logic_traps?.details as
     | Record<string, unknown>
     | undefined
+  const model = canonicalizeModelId(input.payload.modelId)
 
   return {
     mode: input.payload.mode === 'gauntlet' ? 'gauntlet' : 'quick',
@@ -63,6 +115,15 @@ export const buildBattlePublishRequest = (
     run_hash: input.report.run_hash || null,
     replay_hash: input.report.replay_hash || null,
     source_run_ref: input.payload.runRef || null,
+    canonical_model_id: model.canonical_model_id,
+    model_family: model.model_family,
+    param_size: model.param_size,
+    quantization: model.quantization,
+    ...resolveIdentity(input.identity),
+    ...resolveHardware({
+      hardware: input.hardware,
+      reportHardware: input.report.hardware,
+    }),
     report_summary: {
       mode: input.payload.mode,
       timestamp: input.report.timestamp,
@@ -81,29 +142,39 @@ export const buildBattlePublishRequest = (
 
 export const buildStressPublishRequest = (
   input: BuildStressPublishInput
-): PublishReportRequest => ({
-  mode: 'stress',
-  scenario_id: input.payload.scenarioId,
-  scenario_name: input.payload.scenarioName,
-  model_id: input.payload.modelId,
-  score: normalizeScore(input.report.passRate),
-  grade: input.payload.grade,
-  tier: resolveTier(input.tier),
-  pass_rate: normalizeScore(input.report.passRate),
-  total_rounds: input.report.totalRounds,
-  passed_rounds: input.report.passedRounds,
-  source_run_ref: input.payload.runRef || null,
-  report_summary: {
+): PublishReportRequest => {
+  const model = canonicalizeModelId(input.payload.modelId)
+
+  return {
     mode: 'stress',
-    timestamp: input.report.timestamp,
-    verdict: input.report.verdict,
-    total_time_ms: input.report.totalTimeMs,
-    leak_rate_mb_per_round: input.report.leakRateMBPerRound,
-    average_latency_ms: input.report.averageLatencyMs,
-    peak_memory_mb: input.report.peakMemoryMB,
-    baseline_memory_mb: input.report.baselineMemoryMB,
-    hardware_label: input.payload.hardwareLabel,
-    share_scores: input.payload.scores,
-    share_taunt: input.payload.taunt,
-  },
-})
+    scenario_id: input.payload.scenarioId,
+    scenario_name: input.payload.scenarioName,
+    model_id: input.payload.modelId,
+    score: normalizeScore(input.report.passRate),
+    grade: input.payload.grade,
+    tier: resolveTier(input.tier),
+    pass_rate: normalizeScore(input.report.passRate),
+    total_rounds: input.report.totalRounds,
+    passed_rounds: input.report.passedRounds,
+    source_run_ref: input.payload.runRef || null,
+    canonical_model_id: model.canonical_model_id,
+    model_family: model.model_family,
+    param_size: model.param_size,
+    quantization: model.quantization,
+    ...resolveIdentity(input.identity),
+    ...resolveHardware({ hardware: input.hardware }),
+    report_summary: {
+      mode: 'stress',
+      timestamp: input.report.timestamp,
+      verdict: input.report.verdict,
+      total_time_ms: input.report.totalTimeMs,
+      leak_rate_mb_per_round: input.report.leakRateMBPerRound,
+      average_latency_ms: input.report.averageLatencyMs,
+      peak_memory_mb: input.report.peakMemoryMB,
+      baseline_memory_mb: input.report.baselineMemoryMB,
+      hardware_label: input.payload.hardwareLabel,
+      share_scores: input.payload.scores,
+      share_taunt: input.payload.taunt,
+    },
+  }
+}

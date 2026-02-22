@@ -42,6 +42,21 @@ const fmtPercent = (value?: number | null): string => {
   return `${value.toFixed(1)}%`
 }
 
+const fmtNullable = (value?: string | null, fallback = 'N/A'): string => {
+  const normalized = (value || '').trim()
+  return normalized || fallback
+}
+
+const fmtVram = (value?: number | null): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A'
+  return `${value.toFixed(1)} GB`
+}
+
+const githubProfileUrl = (username?: string | null): string => {
+  const normalized = (username || '').trim().replace(/^@+/, '')
+  return `https://github.com/${normalized}`
+}
+
 const fmtDate = (value: string): string => {
   const parsed = Date.parse(value)
   if (!Number.isFinite(parsed)) return value
@@ -129,6 +144,79 @@ onMounted(() => {
           <div class="border border-green-900 rounded p-3">
             <p class="text-green-600">Tier</p>
             <p class="text-xl font-bold">{{ report.tier }}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+          <div class="border border-green-900 rounded-lg p-4 space-y-2">
+            <h2 class="text-base font-bold text-green-500">Gladiator Identity</h2>
+            <p>
+              <span class="text-green-600">Name:</span>
+              <span class="font-bold ml-2">{{ report.gladiator_name || 'Anonymous' }}</span>
+            </p>
+            <p v-if="report.github_username">
+              <span class="text-green-600">GitHub:</span>
+              <a
+                :href="githubProfileUrl(report.github_username)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="font-bold ml-2 text-cyan-300 hover:text-cyan-100 underline underline-offset-2"
+              >
+                @{{ report.github_username }}
+              </a>
+            </p>
+            <p>
+              <span class="text-green-600">Device ID:</span>
+              <span class="font-bold ml-2 break-all">{{ report.device_id }}</span>
+            </p>
+          </div>
+
+          <div class="border border-green-900 rounded-lg p-4 space-y-2">
+            <h2 class="text-base font-bold text-green-500">Model Canonicalization</h2>
+            <p>
+              <span class="text-green-600">Model ID:</span>
+              <span class="font-bold ml-2 break-all">{{ report.model_id }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">Canonical:</span>
+              <span class="font-bold ml-2 break-all">{{ fmtNullable(report.canonical_model_id) }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">Family:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.model_family) }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">Param Size:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.param_size) }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">Quantization:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.quantization) }}</span>
+            </p>
+          </div>
+
+          <div class="border border-green-900 rounded-lg p-4 space-y-2">
+            <h2 class="text-base font-bold text-green-500">Hardware (Self-Reported)</h2>
+            <p>
+              <span class="text-green-600">GPU:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.gpu_name, 'Unknown GPU') }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">Vendor:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.gpu_vendor) }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">OS:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.os_name) }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">Browser:</span>
+              <span class="font-bold ml-2">{{ fmtNullable(report.browser_name) }}</span>
+            </p>
+            <p>
+              <span class="text-green-600">VRAM:</span>
+              <span class="font-bold ml-2">{{ fmtVram(report.vram_gb) }}</span>
+            </p>
           </div>
         </div>
 

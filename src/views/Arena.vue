@@ -14,6 +14,7 @@ import { buildArenaSharePayload } from '@/lib/share/share-payload'
 import { publishReport } from '@/lib/share/publish-report'
 import { buildArenaPublishRequest } from '@/lib/share/publish-normalizers'
 import type { PublishedShareLinks } from '@/lib/share/publish-types'
+import { loadGladiatorIdentity } from '@/composables/useGladiatorIdentity'
 import ShareResultActions from '@/components/shared/ShareResultActions.vue'
 import { z } from 'zod'
 
@@ -178,6 +179,8 @@ const publishArenaShare = async (): Promise<PublishedShareLinks> => {
   const request = buildArenaPublishRequest({
     payload: arenaSharePayload.value,
     score: scoreResult.value,
+    identity: loadGladiatorIdentity(),
+    hardware,
     tier: hardware?.tier,
   })
   const links = await publishReport(request)

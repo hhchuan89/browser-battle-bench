@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ShareResultPayload } from '@/types/share'
 import { createShareCardFile } from '@/lib/share/share-card-image'
@@ -8,6 +8,8 @@ import {
   type SocialShareTarget,
 } from '@/lib/share/social-share'
 import type { PublishedShareLinks } from '@/lib/share/publish-types'
+import GladiatorGate from '@/components/shared/GladiatorGate.vue'
+import { useGladiatorIdentity } from '@/composables/useGladiatorIdentity'
 
 const props = withDefaults(
   defineProps<{
@@ -37,6 +39,14 @@ const isBusy = ref(false)
 const statusText = ref('')
 const showSocialMenu = ref(false)
 const publishedLinks = ref<PublishedShareLinks | null>(null)
+const showIdentityGate = ref(false)
+const identityGateResolver = ref<((value: boolean) => void) | null>(null)
+const {
+  identity: gladiatorIdentity,
+  hasGladiatorName,
+  reload: reloadIdentity,
+  save: saveIdentity,
+} = useGladiatorIdentity()
 
 const resolvedShareUrl = computed(
   () => publishedLinks.value?.share_url || props.payload.shareUrl
@@ -117,8 +127,53 @@ const copyShareLink = async () => {
   if (ok) emit('link-copied')
 }
 
+const resolveIdentityGate = (value: boolean) => {
+  if (!identityGateResolver.value) return
+  const resolver = identityGateResolver.value
+  identityGateResolver.value = null
+  resolver(value)
+}
+
+onBeforeUnmount(() => {
+  resolveIdentityGate(false)
+})
+
+const ensureIdentityReady = async (): Promise<boolean> => {
+  reloadIdentity()
+  if (hasGladiatorName.value) return true
+
+  showIdentityGate.value = true
+  statusText.value = 'Set your Gladiator identity before global publishing.'
+
+  return new Promise<boolean>((resolve) => {
+    identityGateResolver.value = resolve
+  })
+}
+
+const handleIdentityConfirm = (payload: {
+  gladiatorName: string
+  githubUsername: string
+}) => {
+  saveIdentity({
+    gladiatorName: payload.gladiatorName,
+    githubUsername: payload.githubUsername,
+  })
+  showIdentityGate.value = false
+  resolveIdentityGate(true)
+}
+
+const handleIdentityCancel = () => {
+  showIdentityGate.value = false
+  statusText.value = 'Publishing cancelled. Gladiator identity is required.'
+  resolveIdentityGate(false)
+}
+
 const ensurePublishedShareUrl = async (): Promise<boolean> => {
   if (!props.publishReport || publishedLinks.value) return true
+
+  const identityReady = await ensureIdentityReady()
+  if (!identityReady) return false
+
   isBusy.value = true
   statusText.value = 'Publishing result...'
   try {
@@ -191,6 +246,14 @@ const goNext = () => {
 
 <template>
   <div class="space-y-3">
+    <GladiatorGate
+      :open="showIdentityGate"
+      :busy="isBusy"
+      :initial-name="gladiatorIdentity.gladiator_name"
+      :initial-github="gladiatorIdentity.github_username || ''"
+      @confirm="handleIdentityConfirm"
+      @cancel="handleIdentityCancel"
+    />
     <div class="flex flex-wrap gap-2">
       <button
         class="btn btn-primary btn-sm"

@@ -12,7 +12,7 @@ const basePayload: ShareResultPayload = {
   mode: 'quick',
   scenarioId: 'scenario-1',
   scenarioName: 'Scenario 1',
-  modelId: 'model-a',
+  modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
   grade: 'A',
   badgeText: 'GLADIATOR',
   scores: {
@@ -27,7 +27,54 @@ const basePayload: ShareResultPayload = {
   challengeUrl: 'https://example.com/challenge',
 }
 
+const identity = {
+  gladiator_name: 'ArenaChampion',
+  github_username: 'hhchuan89',
+  device_id: '123e4567-e89b-42d3-a456-426614174000',
+}
+
+const hardware = {
+  tier: 'S',
+  gpu: 'Apple M4',
+  gpu_vendor: 'Apple',
+  gpu_raw: 'ANGLE (Apple, Apple M4, OpenGL 4.1)',
+  os_name: 'macOS',
+  browser_name: 'Chrome',
+  estimated_vram_gb: 16,
+  is_mobile: false,
+  timestamp: '2026-02-22T00:00:00.000Z',
+} as const
+
 describe('publish normalizers', () => {
+  it('requires gladiator identity before building payload', () => {
+    expect(() =>
+      buildArenaPublishRequest({
+        payload: {
+          ...basePayload,
+          mode: 'arena',
+        },
+        score: {
+          totalScore: 80,
+          breakdown: {
+            formatCompliance: 80,
+            fieldCompleteness: 80,
+            responseEfficiency: 80,
+            schemaPurity: 80,
+            ttft: 80,
+          },
+          warnings: [],
+          errors: [],
+        },
+        tier: 'A',
+        identity: {
+          ...identity,
+          gladiator_name: ' ',
+        },
+        hardware,
+      })
+    ).toThrow('Missing gladiator identity')
+  })
+
   it('builds arena publish request with normalized score', () => {
     const request = buildArenaPublishRequest({
       payload: {
@@ -47,11 +94,21 @@ describe('publish normalizers', () => {
         errors: [],
       },
       tier: 'A',
+      identity,
+      hardware,
     })
 
     expect(request.mode).toBe('arena')
     expect(request.score).toBe(88.67)
     expect(request.tier).toBe('A')
+    expect(request.gladiator_name).toBe('ArenaChampion')
+    expect(request.github_username).toBe('hhchuan89')
+    expect(request.device_id).toBe('123e4567-e89b-42d3-a456-426614174000')
+    expect(request.canonical_model_id).toBe('llama-3.2-1b-q4f16')
+    expect(request.model_family).toBe('llama-3.2')
+    expect(request.param_size).toBe('1B')
+    expect(request.quantization).toBe('q4f16')
+    expect(request.gpu_name).toBe('Apple M4')
     expect(request.report_summary.mode).toBe('arena')
   })
 
@@ -101,6 +158,8 @@ describe('publish normalizers', () => {
         mode: 'gauntlet',
       },
       report,
+      identity,
+      hardware,
     })
 
     expect(request.mode).toBe('gauntlet')
@@ -110,6 +169,10 @@ describe('publish normalizers', () => {
     expect(request.passed_rounds).toBe(9)
     expect(request.run_hash).toBe('hash-123')
     expect(request.replay_hash).toBe('replay-123')
+    expect(request.gladiator_name).toBe('ArenaChampion')
+    expect(request.device_id).toBe('123e4567-e89b-42d3-a456-426614174000')
+    expect(request.canonical_model_id).toBe('llama-3.2-1b-q4f16')
+    expect(request.gpu_vendor).toBe('Apple')
   })
 
   it('builds stress publish request with endurance summary', () => {
@@ -134,6 +197,8 @@ describe('publish normalizers', () => {
       },
       report,
       tier: 'S',
+      identity,
+      hardware,
     })
 
     expect(request.mode).toBe('stress')
@@ -141,6 +206,10 @@ describe('publish normalizers', () => {
     expect(request.pass_rate).toBe(83.33)
     expect(request.total_rounds).toBe(30)
     expect(request.passed_rounds).toBe(25)
+    expect(request.gladiator_name).toBe('ArenaChampion')
+    expect(request.device_id).toBe('123e4567-e89b-42d3-a456-426614174000')
+    expect(request.canonical_model_id).toBe('llama-3.2-1b-q4f16')
+    expect(request.os_name).toBe('macOS')
     expect(request.report_summary.mode).toBe('stress')
   })
 })

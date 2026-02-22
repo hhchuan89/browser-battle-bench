@@ -1,5 +1,6 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { saveHardwareSnapshot } from '@/lib/hardware-snapshot'
+import { detectHardwareProfile } from '@/lib/hardware-detect'
 
 export type HardwareTier = 'S' | 'A' | 'B' | 'M' | 'F'
 
@@ -7,8 +8,12 @@ export interface GatekeeperResult {
   tier: HardwareTier
   hasWebGPU: boolean
   gpuName: string
+  gpuVendor: string
+  gpuRaw: string
   vramGb: number
   isMobile: boolean
+  browserName: string
+  osName: string
   ollamaAvailable: boolean
   ollamaModels: string[]
   gpuStatus: 'webgpu' | 'webgl' | 'unknown'
@@ -16,165 +21,124 @@ export interface GatekeeperResult {
   ollamaHint?: string
 }
 
+const isLoopbackHost = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+
+const shouldProbeOllama = (): boolean => {
+  if (typeof window === 'undefined' || !window.location) return true
+  const { protocol, hostname } = window.location
+  if (protocol === 'https:' && !isLoopbackHost(hostname)) {
+    return false
+  }
+  return true
+}
+
+const assignTier = (input: {
+  hasWebGPU: boolean
+  isMobile: boolean
+  vramGb: number
+}): HardwareTier => {
+  if (!input.hasWebGPU) return 'F'
+  if (input.isMobile) return 'M'
+  if (input.vramGb >= 16) return 'S'
+  if (input.vramGb >= 8) return 'A'
+  return 'B'
+}
+
 export function useGatekeeper() {
   const isScanning = ref(false)
   const result = ref<GatekeeperResult | null>(null)
 
-  const isLoopbackHost = (hostname: string): boolean =>
-    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-
-  const shouldProbeOllama = (): boolean => {
-    if (typeof window === 'undefined' || !window.location) return true
-    const { protocol, hostname } = window.location
-    // Browsers block secure-origin -> localhost probes without private-network opt-in.
-    if (protocol === 'https:' && !isLoopbackHost(hostname)) {
-      return false
-    }
-    return true
-  }
-
-  const detectWebglRenderer = (): string | null => {
-    if (typeof document === 'undefined') return null
-    try {
-      const canvas = document.createElement('canvas')
-      const gl =
-        canvas.getContext('webgl') ||
-        canvas.getContext('experimental-webgl')
-      if (!gl) return null
-      const debugInfo = (gl as WebGLRenderingContext).getExtension(
-        'WEBGL_debug_renderer_info'
-      )
-      if (!debugInfo) return null
-      const renderer = (gl as WebGLRenderingContext).getParameter(
-        debugInfo.UNMASKED_RENDERER_WEBGL
-      )
-      return typeof renderer === 'string' && renderer.trim()
-        ? renderer
-        : null
-    } catch {
-      return null
-    }
-  }
-  
   const scan = async () => {
     isScanning.value = true
-    
-    // 1. WebGPU detection
-    const hasWebGPU = 'gpu' in navigator
-    
-    // 2. GPU info
-    let gpuName = 'Unknown'
-    let vramGb = 0
-    let gpuStatus: GatekeeperResult['gpuStatus'] = 'unknown'
-    if (hasWebGPU) {
-      try {
-        const adapter = await (navigator as any).gpu.requestAdapter()
-        if (adapter) {
-          if (typeof adapter.requestAdapterInfo === 'function') {
-            const info = await adapter.requestAdapterInfo()
-            gpuName = info.deviceName
-          }
-          gpuStatus = 'webgpu'
-          // Estimate VRAM (unified memory for Apple Silicon)
-          // Default estimate, refine based on device
-          const ua = navigator.userAgent
-          if (/Mac/.test(ua)) {
-            // Try to detect Apple Silicon memory
-            vramGb = 24 // Default for M-series
-            if (/M1\s*(Pro|Max)?/.test(ua)) vramGb = 16
-            else if (/M2\s*Pro/.test(ua) || /M3/.test(ua)) vramGb = 18
-            else if (/M2\s*Max/.test(ua) || /M3\s*Pro/.test(ua)) vramGb = 32
-            else if (/M3\s*Max/.test(ua)) vramGb = 36
-          } else {
-            vramGb = 8 // Default for other GPUs
-          }
-        }
-      } catch (e) {
-        console.error('WebGPU error:', e)
-      }
-    }
-    if (gpuStatus === 'unknown') {
-      const webglRenderer = detectWebglRenderer()
-      if (webglRenderer) {
-        gpuName = webglRenderer
-        gpuStatus = 'webgl'
-      }
-    }
-    
-    // 3. Mobile detection
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-    
-    // 4. Ollama detection
+
+    const profile = await detectHardwareProfile()
+
     let ollamaAvailable = false
     let ollamaModels: string[] = []
     let ollamaStatus: GatekeeperResult['ollamaStatus'] = 'unreachable'
     let ollamaHint: string | undefined
+
     if (shouldProbeOllama()) {
       try {
-        const res = await fetch('http://localhost:11434/api/tags', { 
+        const res = await fetch('http://localhost:11434/api/tags', {
           method: 'GET',
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(3000),
         })
         if (res.ok) {
           ollamaAvailable = true
           const data = await res.json()
-          ollamaModels = data.models?.map((m: any) => m.name) || []
+          ollamaModels = Array.isArray(data.models)
+            ? data.models
+                .map((model: unknown) =>
+                  typeof model === 'object' &&
+                  model &&
+                  'name' in model &&
+                  typeof (model as { name?: unknown }).name === 'string'
+                    ? (model as { name: string }).name
+                    : null
+                )
+                .filter((name: string | null): name is string => !!name)
+            : []
           ollamaStatus = 'connected'
         }
-      } catch (e) {
-        // Ollama not available
+      } catch {
+        // leave default unreachable
       }
     } else {
       ollamaStatus = 'skipped-remote-https'
-      ollamaHint = 'Hosted HTTPS pages cannot reliably probe local Ollama. Run BBB on localhost for direct detection.'
+      ollamaHint =
+        'Hosted HTTPS pages cannot reliably probe local Ollama. Run BBB on localhost for direct detection.'
     }
-    
-    // 5. Tier assignment
-    let tier: HardwareTier = 'F'
-    if (!hasWebGPU) {
-      tier = 'F'
-    } else if (isMobile) {
-      tier = 'M'
-    } else if (vramGb >= 16) {
-      tier = 'S'
-    } else if (vramGb >= 8) {
-      tier = 'A'
-    } else {
-      tier = 'B'
-    }
-    
+
+    const tier = assignTier({
+      hasWebGPU: profile.hasWebGPU,
+      isMobile: profile.isMobile,
+      vramGb: profile.vramGb,
+    })
+
     result.value = {
       tier,
-      hasWebGPU,
-      gpuName,
-      vramGb,
-      isMobile,
+      hasWebGPU: profile.hasWebGPU,
+      gpuName: profile.gpuName,
+      gpuVendor: profile.gpuVendor,
+      gpuRaw: profile.gpuRaw,
+      vramGb: profile.vramGb,
+      isMobile: profile.isMobile,
+      browserName: profile.browserName,
+      osName: profile.osName,
       ollamaAvailable,
       ollamaModels,
-      gpuStatus,
+      gpuStatus: profile.gpuStatus,
       ollamaStatus,
       ollamaHint,
     }
+
     saveHardwareSnapshot({
       tier,
-      gpu: gpuName,
-      estimated_vram_gb: vramGb,
-      is_mobile: isMobile,
-      timestamp: new Date().toISOString()
+      gpu: profile.gpuName,
+      gpu_vendor: profile.gpuVendor,
+      gpu_raw: profile.gpuRaw,
+      os_name: profile.osName,
+      browser_name: profile.browserName,
+      estimated_vram_gb: profile.vramGb,
+      is_mobile: profile.isMobile,
+      timestamp: new Date().toISOString(),
     })
+
     isScanning.value = false
   }
-  
+
   const tierLabel = computed(() => {
     const labels: Record<HardwareTier, string> = {
       S: 'Legendary (16GB+)',
       A: 'Elite (8-16GB)',
       B: 'Street Fighter (<8GB)',
-      M: 'Mobile (<2GB)',
-      F: 'No WebGPU'
+      M: 'Mobile',
+      F: 'No WebGPU',
     }
     return result.value ? labels[result.value.tier] : 'Unknown'
   })
-  
+
   return { isScanning, result, scan, tierLabel }
 }
