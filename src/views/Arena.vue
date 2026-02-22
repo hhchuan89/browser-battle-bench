@@ -15,7 +15,7 @@ import { publishReport } from '@/lib/share/publish-report'
 import { buildArenaPublishRequest } from '@/lib/share/publish-normalizers'
 import type { PublishedShareLinks } from '@/lib/share/publish-types'
 import { loadGladiatorIdentity } from '@/composables/useGladiatorIdentity'
-import ShareResultActions from '@/components/shared/ShareResultActions.vue'
+import ResultActionBar from '@/components/shared/ResultActionBar.vue'
 import { z } from 'zod'
 
 // State
@@ -349,7 +349,7 @@ onMounted(() => {
             <p class="text-green-500 text-sm">Schema Purity</p>
             <p class="text-xl font-bold">{{ scoreResult.breakdown.schemaPurity }}%</p>
           </div>
-          <div class="bg-green-900/30 rounded p-3">
+          <div class="bg-green-900/30 rounded p-3 md:col-span-2">
             <p class="text-green-500 text-sm">TTFT Score</p>
             <p class="text-xl font-bold">{{ scoreResult.breakdown.ttft.toFixed(1) }}%</p>
           </div>
@@ -370,21 +370,15 @@ onMounted(() => {
         </div>
 
         <div class="mt-6 space-y-3">
-          <ShareResultActions
+          <ResultActionBar
             v-if="arenaSharePayload"
             :payload="arenaSharePayload"
             :publish-report="publishArenaShare"
-            :show-next="true"
-            next-label="Next Challenge"
             next-to="/quick"
+            primary-mode="next"
+            retry-label="New Battle"
+            @retry-click="resetBattle"
           />
-
-          <button
-            @click="resetBattle"
-            class="w-full py-3 bg-green-700 hover:bg-green-600 text-black font-bold rounded"
-          >
-            🔄 New Battle
-          </button>
         </div>
       </div>
 

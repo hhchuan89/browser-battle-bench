@@ -199,7 +199,13 @@
     <!-- Final Score Modal with Celebration -->
     <FadeTransition :show="isComplete && showResults" :duration="500">
       <div v-if="isComplete && showResults" class="modal modal-open">
-        <div class="modal-box max-w-md">
+        <div class="modal-box max-w-md relative">
+          <button
+            class="btn btn-ghost btn-xs absolute right-3 top-3"
+            @click="showResults = false"
+          >
+            Close
+          </button>
           <h3 class="font-bold text-2xl mb-4 text-center">🏆 Battle Complete!</h3>
           
           <!-- Score Display with Animation -->
@@ -232,24 +238,22 @@
             </div>
           </div>
 
-          <div class="mb-4">
-            <ShareResultActions
+          <div class="mb-2">
+            <ResultActionBar
               v-if="battleSharePayload"
               :payload="battleSharePayload"
               :publish-report="publishBattleShare"
-              :show-next="true"
-              :next-label="nextLabel"
               :next-to="battleSharePayload.nextRoute || ''"
+              :primary-mode="primaryMode"
+              :primary-label="nextLabel"
+              retry-label="Battle Again"
+              utility-download-label="Download BBB Report"
+              :on-utility-download="downloadBBBReportBundle"
+              @retry-click="resetAndStart"
             />
             <p v-if="stressBlockedHint" class="text-xs text-warning text-center mt-2">
               {{ stressBlockedHint }}
             </p>
-          </div>
-          
-          <div class="modal-action justify-center">
-            <button class="btn btn-primary" @click="showResults = false">Close</button>
-            <button class="btn btn-accent" @click="downloadBBBReportBundle">Download BBB Report</button>
-            <button class="btn btn-secondary" @click="resetAndStart">Battle Again</button>
           </div>
         </div>
       </div>
@@ -274,7 +278,7 @@ import { loadGladiatorIdentity } from '@/composables/useGladiatorIdentity';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
-import ShareResultActions from './shared/ShareResultActions.vue';
+import ResultActionBar from './shared/ResultActionBar.vue';
 
 interface BattleArenaProps {
   scenarios?: BattleScenario[];
@@ -354,13 +358,16 @@ const hardwareLabel = computed(() =>
 );
 const nextLabel = computed(() =>
   props.mode === 'gauntlet' && isStressBlocked.value
-    ? 'Next: Leaderboard'
-    : 'Next Challenge'
+    ? 'Publish to Leaderboard'
+    : 'Publish and Next Challenge'
 );
 const stressBlockedHint = computed(() =>
   props.mode === 'gauntlet' && isStressBlocked.value
     ? 'Stress blocked on this device tier (M/F), skipping to Leaderboard.'
     : ''
+);
+const primaryMode = computed<'next' | 'leaderboard'>(() =>
+  props.mode === 'gauntlet' && isStressBlocked.value ? 'leaderboard' : 'next'
 );
 
 const battleSharePayload = computed(() => {

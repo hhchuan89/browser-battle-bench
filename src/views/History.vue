@@ -8,7 +8,8 @@ import {
 } from '@/lib/run-history'
 import { loadHardwareSnapshot } from '@/lib/hardware-snapshot'
 import { buildHistorySharePayload } from '@/lib/share/share-payload'
-import ShareResultActions from '@/components/shared/ShareResultActions.vue'
+import { createShareCardFile } from '@/lib/share/share-card-image'
+import { buildSocialShareText } from '@/lib/share/social-share'
 
 const entries = ref<RunHistoryEntry[]>([])
 
@@ -72,6 +73,73 @@ const buildEntrySharePayload = (entry: RunHistoryEntry) =>
     entry,
     hardwareLabel: hardwareLabel.value,
   })
+
+const copyText = async (text: string): Promise<boolean> => {
+  if (!text) return false
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // fallback below
+  }
+
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+const shareEntry = async (entry: RunHistoryEntry) => {
+  const payload = buildEntrySharePayload(entry)
+  const text = buildSocialShareText(payload)
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        text,
+        url: payload.shareUrl,
+      })
+      return
+    } catch {
+      // continue fallback
+    }
+  }
+
+  await copyText(`${text} ${payload.shareUrl}`.trim())
+}
+
+const copyEntryLink = async (entry: RunHistoryEntry) => {
+  const payload = buildEntrySharePayload(entry)
+  await copyText(payload.shareUrl)
+}
+
+const copyEntryChallengeLink = async (entry: RunHistoryEntry) => {
+  const payload = buildEntrySharePayload(entry)
+  await copyText(payload.challengeUrl)
+}
+
+const downloadEntryCard = async (entry: RunHistoryEntry) => {
+  const payload = buildEntrySharePayload(entry)
+  const file = await createShareCardFile(payload)
+  if (!file) return
+  const url = URL.createObjectURL(file)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = file.name
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
@@ -187,8 +255,31 @@ const buildEntrySharePayload = (entry: RunHistoryEntry) =>
               </div>
             </div>
 
-            <div class="mt-3 flex flex-wrap gap-2 items-center">
-              <ShareResultActions :payload="buildEntrySharePayload(entry)" />
+            <div class="mt-3 flex flex-wrap gap-2 items-center opacity-85 hover:opacity-100 transition-opacity">
+              <button
+                class="btn btn-xs btn-outline border-green-900 text-green-300 hover:border-green-700"
+                @click="void shareEntry(entry)"
+              >
+                📤 Share
+              </button>
+              <button
+                class="btn btn-xs btn-outline border-green-900 text-green-300 hover:border-green-700"
+                @click="void copyEntryChallengeLink(entry)"
+              >
+                ⚔️ Challenge
+              </button>
+              <button
+                class="btn btn-xs btn-ghost text-green-500 hover:text-green-300"
+                @click="void copyEntryLink(entry)"
+              >
+                🔗 Copy Link
+              </button>
+              <button
+                class="btn btn-xs btn-ghost text-green-500 hover:text-green-300"
+                @click="void downloadEntryCard(entry)"
+              >
+                💾 Download Card
+              </button>
               <RouterLink
                 :to="toStageRoute(entry.mode)"
                 class="bg-green-900 hover:bg-green-800 text-green-100 text-xs px-3 py-2 rounded"

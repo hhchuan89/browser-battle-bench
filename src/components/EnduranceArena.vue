@@ -14,7 +14,7 @@ import { loadGladiatorIdentity } from '@/composables/useGladiatorIdentity';
 import CountUp from './shared/CountUp.vue';
 import FadeTransition from './shared/FadeTransition.vue';
 import PulseRing from './shared/PulseRing.vue';
-import ShareResultActions from '@/components/shared/ShareResultActions.vue';
+import ResultActionBar from '@/components/shared/ResultActionBar.vue';
 
 interface EnduranceArenaProps {
   defaultScenarioId?: string;
@@ -113,6 +113,11 @@ async function startTest() {
   if (!selectedScenario.value) return;
   publishedShareLinks.value = null;
   await enduranceStore.startTest(selectedScenario.value);
+}
+
+async function retryStressTest() {
+  enduranceStore.resetTest();
+  await startTest();
 }
 
 function downloadReport() {
@@ -480,20 +485,17 @@ function getLatencyBarColor(durationMs: number): string {
               </div>
             </div>
             
-            <button 
-              @click="downloadReport"
-              class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
-            >
-              📥 Download JSON Report
-            </button>
             <div class="mt-3">
-              <ShareResultActions
+              <ResultActionBar
                 v-if="stressSharePayload"
                 :payload="stressSharePayload"
                 :publish-report="publishStressShare"
-                :show-next="true"
-                next-label="Leaderboard"
                 :next-to="stressSharePayload.nextRoute || '/leaderboard'"
+                primary-mode="leaderboard"
+                retry-label="Retry Stress Test"
+                utility-download-label="Download JSON Report"
+                :on-utility-download="downloadReport"
+                @retry-click="void retryStressTest()"
               />
             </div>
           </div>
