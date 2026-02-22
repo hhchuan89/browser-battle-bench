@@ -2,13 +2,20 @@ import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from '
 import { getReportById } from './_lib/report-store.js'
 import { loadServerEnv } from './_lib/env.js'
 import { isUuidLike } from './_lib/id.js'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFile } from 'node:fs/promises'
 import { Resvg } from '@resvg/resvg-js'
 
 const FONT_SANS = 'Noto Sans, sans-serif'
-const THIS_DIR = dirname(fileURLToPath(import.meta.url))
-const FONT_FILE_PATH = join(THIS_DIR, '_assets', 'NotoSans-Variable.ttf')
+const FONT_FILE_URL = new URL('./_assets/NotoSans-Variable.ttf', import.meta.url)
+let cachedFontBuffer: Buffer | null = null
+
+const loadFontBuffer = async (): Promise<Buffer> => {
+  if (cachedFontBuffer) {
+    return cachedFontBuffer
+  }
+  cachedFontBuffer = Buffer.from(await readFile(FONT_FILE_URL))
+  return cachedFontBuffer
+}
 
 const THEMES: Record<string, {
   modeLabel: string
@@ -160,13 +167,15 @@ export default async function handler(req: any, res?: any): Promise<void | Respo
       grade: report.grade,
       tier: report.tier,
     })
+    const fontBuffer = await loadFontBuffer()
     const resvg = new Resvg(svg, {
       font: {
         loadSystemFonts: false,
         defaultFontFamily: 'Noto Sans',
-        fontFiles: [FONT_FILE_PATH],
+        sansSerifFamily: 'Noto Sans',
+        fontBuffers: [fontBuffer],
       },
-    })
+    } as any)
     const png = Buffer.from(resvg.render().asPng())
 
     if (res && typeof res.setHeader === 'function') {
