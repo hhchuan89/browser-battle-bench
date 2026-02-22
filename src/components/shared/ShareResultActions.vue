@@ -59,6 +59,12 @@ const resolvedCardPayload = computed<ShareResultPayload>(() => ({
 const socialTargets = computed(() =>
   buildSocialShareTargets(props.payload, resolvedShareUrl.value)
 )
+const hasNextRoute = computed(() => Boolean(props.showNext && props.nextTo))
+const publishNextLabel = computed(() =>
+  props.payload.mode === 'stress'
+    ? 'Publish to Leaderboard'
+    : 'Publish and Next Challenge'
+)
 
 const getCardFile = async (): Promise<File | null> => {
   return createShareCardFile(resolvedCardPayload.value)
@@ -242,6 +248,17 @@ const goNext = () => {
   router.push(props.nextTo)
   emit('next-click', props.nextTo)
 }
+
+const publishAndGoNext = async () => {
+  if (isBusy.value || !hasNextRoute.value) return
+  const ready = await ensurePublishedShareUrl()
+  if (!ready) return
+  statusText.value =
+    props.payload.mode === 'stress'
+      ? 'Published. Opening Leaderboard...'
+      : 'Published. Moving to next challenge...'
+  goNext()
+}
 </script>
 
 <template>
@@ -254,7 +271,15 @@ const goNext = () => {
       @confirm="handleIdentityConfirm"
       @cancel="handleIdentityCancel"
     />
-    <div class="flex flex-wrap gap-2">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <button
+        v-if="hasNextRoute"
+        class="btn btn-accent btn-sm sm:col-span-2 lg:col-span-1"
+        :disabled="isBusy"
+        @click="void publishAndGoNext()"
+      >
+        {{ publishNextLabel }}
+      </button>
       <button
         class="btn btn-primary btn-sm"
         :disabled="isBusy"
@@ -282,14 +307,6 @@ const goNext = () => {
         @click="downloadCard"
       >
         Download Card
-      </button>
-      <button
-        v-if="showNext && nextTo"
-        class="btn btn-accent btn-sm"
-        :disabled="isBusy"
-        @click="goNext"
-      >
-        {{ nextLabel }}
       </button>
     </div>
     <div
