@@ -2,6 +2,7 @@ import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, html, methodN
 import { loadServerEnv } from './_lib/env.js'
 import { buildReportLinks } from './_lib/report-links.js'
 import { getReportById } from './_lib/report-store.js'
+import { isUuidLike } from './_lib/id.js'
 
 const modeLabel = (mode: string): string =>
   mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()
@@ -60,6 +61,9 @@ export default async function handler(req: any, res?: any): Promise<void | Respo
     const id = requestUrl.searchParams.get('id')?.trim() || ''
     if (!id) {
       return badRequest(res, 'Missing report id')
+    }
+    if (!isUuidLike(id)) {
+      return badRequest(res, 'Invalid report id format')
     }
 
     const report = await getReportById(id)

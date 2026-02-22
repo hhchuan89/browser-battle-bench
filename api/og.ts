@@ -1,6 +1,7 @@
 import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from './_lib/http.js'
 import { getReportById } from './_lib/report-store.js'
 import { loadServerEnv } from './_lib/env.js'
+import { isUuidLike } from './_lib/id.js'
 
 const THEMES: Record<string, {
   icon: string
@@ -139,6 +140,9 @@ export default async function handler(req: any, res?: any): Promise<void | Respo
     const id = requestUrl.searchParams.get('id')?.trim() || ''
     if (!id) {
       return badRequest(res, 'Missing report id')
+    }
+    if (!isUuidLike(id)) {
+      return badRequest(res, 'Invalid report id format')
     }
 
     const report = await getReportById(id)
