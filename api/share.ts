@@ -44,7 +44,6 @@ const toMetaHtml = (input: {
   <meta name="twitter:image" content="${image}" />
   <meta name="twitter:image:alt" content="${title}" />
 
-  <meta http-equiv="refresh" content="0;url=${canonical}" />
   <link rel="canonical" href="${canonical}" />
 </head>
 <body>
