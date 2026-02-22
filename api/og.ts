@@ -4,8 +4,9 @@ import { loadServerEnv } from './_lib/env.js'
 import { isUuidLike } from './_lib/id.js'
 import sharp from 'sharp'
 
+const FONT_SANS = 'DejaVu Sans, Arial, Helvetica, sans-serif'
+
 const THEMES: Record<string, {
-  icon: string
   modeLabel: string
   from: string
   to: string
@@ -15,7 +16,6 @@ const THEMES: Record<string, {
   soft: string
 }> = {
   arena: {
-    icon: '⚔️',
     modeLabel: 'ARENA',
     from: '#3f0f0f',
     to: '#1f1212',
@@ -25,7 +25,6 @@ const THEMES: Record<string, {
     soft: '#fdba74',
   },
   quick: {
-    icon: '⚡',
     modeLabel: 'QUICK',
     from: '#042038',
     to: '#0c1724',
@@ -35,7 +34,6 @@ const THEMES: Record<string, {
     soft: '#67e8f9',
   },
   gauntlet: {
-    icon: '🥊',
     modeLabel: 'GAUNTLET',
     from: '#27203b',
     to: '#1a1628',
@@ -45,7 +43,6 @@ const THEMES: Record<string, {
     soft: '#d8b4fe',
   },
   stress: {
-    icon: '🔥',
     modeLabel: 'STRESS',
     from: '#3d150b',
     to: '#1f131f',
@@ -111,22 +108,22 @@ const buildSvg = (input: {
   <rect x="0" y="0" width="1200" height="630" fill="url(#bg)"/>
   <rect x="12" y="12" width="1176" height="606" rx="18" fill="none" stroke="${theme.accent}" stroke-width="4"/>
 
-  <text x="48" y="78" fill="${theme.text}" font-family="Menlo, Monaco, monospace" font-size="34" font-weight="700">🏟️ BROWSER BATTLE BENCH</text>
+  <text x="48" y="78" fill="${theme.text}" font-family="${FONT_SANS}" font-size="34" font-weight="700">BROWSER BATTLE BENCH</text>
 
   <rect x="930" y="38" width="220" height="58" rx="29" fill="none" stroke="${theme.accent}" stroke-width="2"/>
-  <text x="952" y="76" fill="${theme.soft}" font-family="Menlo, Monaco, monospace" font-size="28" font-weight="700">${theme.icon} ${theme.modeLabel}</text>
+  <text x="952" y="76" fill="${theme.soft}" font-family="${FONT_SANS}" font-size="28" font-weight="700">${theme.modeLabel}</text>
 
-  <text x="48" y="168" fill="${theme.text}" font-family="Menlo, Monaco, monospace" font-size="46" font-weight="700">${scenarioName}</text>
-  <text x="48" y="216" fill="${theme.soft}" font-family="Menlo, Monaco, monospace" font-size="30" font-weight="600">${modelId}</text>
-  <text x="48" y="256" fill="${theme.soft}" font-family="Menlo, Monaco, monospace" font-size="24" font-weight="600">Tier ${tier}</text>
+  <text x="48" y="168" fill="${theme.text}" font-family="${FONT_SANS}" font-size="46" font-weight="700">${scenarioName}</text>
+  <text x="48" y="216" fill="${theme.soft}" font-family="${FONT_SANS}" font-size="30" font-weight="600">${modelId}</text>
+  <text x="48" y="256" fill="${theme.soft}" font-family="${FONT_SANS}" font-size="24" font-weight="600">Tier ${tier}</text>
 
   <rect x="48" y="324" width="760" height="230" rx="18" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="2"/>
-  <text x="84" y="382" fill="${theme.soft}" font-family="Menlo, Monaco, monospace" font-size="34" font-weight="600">Score</text>
-  <text x="84" y="496" fill="${gradeTint}" font-family="Menlo, Monaco, monospace" font-size="120" font-weight="800">${input.score.toFixed(1)}</text>
+  <text x="84" y="382" fill="${theme.soft}" font-family="${FONT_SANS}" font-size="34" font-weight="600">Score</text>
+  <text x="84" y="496" fill="${gradeTint}" font-family="${FONT_SANS}" font-size="120" font-weight="800">${input.score.toFixed(1)}</text>
 
   <rect x="832" y="324" width="320" height="230" rx="18" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="2"/>
-  <text x="936" y="382" fill="${theme.soft}" font-family="Menlo, Monaco, monospace" font-size="34" font-weight="600">Grade</text>
-  <text x="948" y="504" fill="${gradeTint}" font-family="Menlo, Monaco, monospace" font-size="132" font-weight="800">${escapeXml(input.grade)}</text>
+  <text x="936" y="382" fill="${theme.soft}" font-family="${FONT_SANS}" font-size="34" font-weight="600">Grade</text>
+  <text x="948" y="504" fill="${gradeTint}" font-family="${FONT_SANS}" font-size="132" font-weight="800">${escapeXml(input.grade)}</text>
 </svg>`
 }
 

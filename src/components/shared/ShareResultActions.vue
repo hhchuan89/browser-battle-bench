@@ -5,7 +5,6 @@ import type { ShareResultPayload } from '@/types/share'
 import { createShareCardFile } from '@/lib/share/share-card-image'
 import {
   buildSocialShareTargets,
-  buildSocialShareText,
   type SocialShareTarget,
 } from '@/lib/share/social-share'
 import type { PublishedShareLinks } from '@/lib/share/publish-types'
@@ -53,23 +52,6 @@ const socialTargets = computed(() =>
 
 const getCardFile = async (): Promise<File | null> => {
   return createShareCardFile(resolvedCardPayload.value)
-}
-
-const copyImageToClipboard = async (file: File): Promise<boolean> => {
-  const clipboardItemCtor = (
-    globalThis as typeof globalThis & { ClipboardItem?: new (items: Record<string, Blob>) => ClipboardItem }
-  ).ClipboardItem
-  if (!navigator.clipboard?.write || !clipboardItemCtor) return false
-
-  try {
-    const item = new clipboardItemCtor({
-      [file.type || 'image/png']: file,
-    })
-    await navigator.clipboard.write([item])
-    return true
-  } catch {
-    return false
-  }
 }
 
 const copyText = async (text: string): Promise<boolean> => {
@@ -183,32 +165,9 @@ const openSocialShare = async (target: SocialShareTarget) => {
     return
   }
 
-  isBusy.value = true
   showSocialMenu.value = false
-  try {
-    const [file, textCopied] = await Promise.all([
-      getCardFile(),
-      copyText(`${buildSocialShareText(props.payload)}\n${resolvedShareUrl.value}`),
-    ])
-    const imageCopied = file ? await copyImageToClipboard(file) : false
-
-    if (imageCopied && textCopied) {
-      statusText.value = `Opened ${target.label}. Card image + caption copied. Paste with Cmd+V.`
-    } else if (imageCopied) {
-      statusText.value = `Opened ${target.label}. Card image copied. Paste with Cmd+V.`
-    } else if (textCopied) {
-      statusText.value = `Opened ${target.label}. Caption copied. Upload card manually if needed.`
-    } else {
-      statusText.value = `Opened ${target.label}. Use Download Card to attach the image manually.`
-    }
-    emit('shared')
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    statusText.value = `Share prep failed: ${reason}`
-    emit('error', reason)
-  } finally {
-    isBusy.value = false
-  }
+  statusText.value = `Opened ${target.label}. Preview image should load automatically from the share link.`
+  emit('shared')
 }
 
 const goNext = () => {
