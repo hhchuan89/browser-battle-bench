@@ -4,137 +4,87 @@ interface NodeResponseLike {
   send: (body: string) => void
 }
 
-const isRequestLike = (value: unknown): value is Request =>
-  typeof Request !== 'undefined' && value instanceof Request
-
-const toNodeHeaderValue = (value: unknown): string => {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value)) return value.join(',')
-  if (value === undefined || value === null) return ''
-  return String(value)
-}
-
-const toHeaders = (request: any): Headers => {
-  if (isRequestLike(request)) return request.headers
-  const headers = new Headers()
-  const source = request?.headers as Record<string, unknown> | undefined
-  if (!source || typeof source !== 'object') return headers
-  for (const [key, value] of Object.entries(source)) {
-    headers.set(key, toNodeHeaderValue(value))
-  }
-  return headers
-}
-
-const isNodeResponse = (value: unknown): value is NodeResponseLike =>
-  typeof value === 'object' &&
-  value !== null &&
-  typeof (value as NodeResponseLike).status === 'function' &&
-  typeof (value as NodeResponseLike).setHeader === 'function' &&
-  typeof (value as NodeResponseLike).send === 'function'
-
-export const sendResponse = async (
-  response: Response,
-  nodeResponse?: unknown
-): Promise<Response | void> => {
-  if (!isNodeResponse(nodeResponse)) return response
-
-  const body = await response.text()
-  nodeResponse.status(response.status)
-  response.headers.forEach((value, key) => {
-    nodeResponse.setHeader(key, value)
-  })
-  nodeResponse.send(body)
-}
-
 export const json = (
+  res: NodeResponseLike,
   status: number,
-  payload: Record<string, unknown>,
-  headers?: Record<string, string>
-): Response =>
-  new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      ...(headers || {}),
-    },
-  })
+  payload: Record<string, unknown>
+): void => {
+  res.status(status)
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.send(JSON.stringify(payload))
+}
 
-export const methodNotAllowed = (allowed: string[]): Response =>
-  json(405, { error: `Method not allowed. Allowed: ${allowed.join(', ')}` })
+export const methodNotAllowed = (res: NodeResponseLike, allowed: string[]): void => {
+  json(res, 405, { error: `Method not allowed. Allowed: ${allowed.join(', ')}` })
+}
 
-export const badRequest = (error: string): Response =>
-  json(400, { error })
+export const badRequest = (res: NodeResponseLike, error: string): void => {
+  json(res, 400, { error })
+}
 
-export const tooManyRequests = (error: string): Response =>
-  json(429, { error })
+export const tooManyRequests = (res: NodeResponseLike, error: string): void => {
+  json(res, 429, { error })
+}
 
-export const notFound = (error = 'Not found'): Response =>
-  json(404, { error })
+export const notFound = (res: NodeResponseLike, error = 'Not found'): void => {
+  json(res, 404, { error })
+}
 
-export const serverError = (error = 'Internal server error'): Response =>
-  json(500, { error })
+export const serverError = (res: NodeResponseLike, error = 'Internal server error'): void => {
+  json(res, 500, { error })
+}
 
-export const readBody = async <T>(request: any): Promise<T> => {
-  if (isRequestLike(request)) {
-    const contentType = request.headers.get('content-type') || ''
-    if (contentType.includes('application/json')) {
-      return (await request.json()) as T
-    }
-
-    const raw = await request.text()
-    if (!raw.trim()) return {} as T
-    return JSON.parse(raw) as T
+export const readBody = async <T>(req: any): Promise<T> => {
+  if (req?.body && typeof req.body === 'object') {
+    return req.body as T
   }
-
-  if (request?.body && typeof request.body === 'object') {
-    return request.body as T
-  }
-  if (typeof request?.body === 'string') {
-    return JSON.parse(request.body) as T
+  if (typeof req?.body === 'string') {
+    return JSON.parse(req.body) as T
   }
 
   const chunks: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
-    request.on('data', (chunk: Buffer) => chunks.push(chunk))
-    request.on('end', () => resolve())
-    request.on('error', (error: Error) => reject(error))
+    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    req.on('end', () => resolve())
+    req.on('error', (error: Error) => reject(error))
   })
+
   const raw = Buffer.concat(chunks).toString('utf8')
   return (raw ? JSON.parse(raw) : {}) as T
 }
 
-export const getRequestBaseUrl = (request: any, fallbackBaseUrl: string): string => {
+export const getRequestBaseUrl = (req: any, fallbackBaseUrl: string): string => {
   if (fallbackBaseUrl && fallbackBaseUrl.trim()) return fallbackBaseUrl
 
-  if (isRequestLike(request)) {
-    const url = new URL(request.url)
-    return `${url.protocol}//${url.host}`
-  }
+  const headers = req?.headers || {}
+  const forwardedProto = (headers['x-forwarded-proto'] as string | undefined) || 'https'
+  const host =
+    (headers['x-forwarded-host'] as string | undefined) ||
+    (headers.host as string | undefined) ||
+    'browserbattlebench.vercel.app'
 
-  const headers = toHeaders(request)
-  const forwardedProto = headers.get('x-forwarded-proto') || 'https'
-  const host = headers.get('x-forwarded-host') || headers.get('host') || 'browserbattlebench.vercel.app'
   return `${forwardedProto}://${host}`
 }
 
-export const getRequestUrl = (request: any, fallbackBaseUrl: string): URL => {
-  if (isRequestLike(request)) {
-    return new URL(request.url)
-  }
-
-  const base = getRequestBaseUrl(request, fallbackBaseUrl)
-  const rawPath = typeof request?.url === 'string' && request.url.trim() ? request.url : '/'
-  const path = rawPath.startsWith('http') ? rawPath : `${base}${rawPath}`
-  return new URL(path)
+export const getRequestUrl = (req: any, fallbackBaseUrl: string): URL => {
+  const base = getRequestBaseUrl(req, fallbackBaseUrl)
+  const rawPath = typeof req?.url === 'string' && req.url.trim() ? req.url : '/'
+  const absolute = rawPath.startsWith('http') ? rawPath : `${base}${rawPath}`
+  return new URL(absolute)
 }
 
-export const getClientIp = (request: any): string => {
-  const headers = toHeaders(request)
-  const forwardedFor = headers.get('x-forwarded-for')
-  if (forwardedFor && forwardedFor.trim()) {
+export const getClientIp = (req: any): string => {
+  const forwardedFor = req?.headers?.['x-forwarded-for']
+
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
     return forwardedFor.split(',')[0].trim()
   }
-  return headers.get('x-real-ip') || request?.socket?.remoteAddress || 'unknown'
+
+  if (Array.isArray(forwardedFor) && forwardedFor[0]) {
+    return String(forwardedFor[0]).split(',')[0].trim()
+  }
+
+  return req?.headers?.['x-real-ip'] || req?.socket?.remoteAddress || 'unknown'
 }
 
 export const escapeHtml = (value: string): string =>

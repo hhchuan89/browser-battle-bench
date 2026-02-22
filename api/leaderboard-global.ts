@@ -1,4 +1,4 @@
-import { badRequest, getRequestUrl, methodNotAllowed, sendResponse, serverError, json } from './_lib/http'
+import { badRequest, getRequestUrl, methodNotAllowed, serverError, json } from './_lib/http'
 import type { PublishMode } from './_lib/contracts'
 import { listReports } from './_lib/report-store'
 import { loadServerEnv } from './_lib/env'
@@ -25,18 +25,16 @@ const parseMode = (value: string | null): PublishMode | 'all' => {
   return 'all'
 }
 
-export default async function handler(request: any, response?: any): Promise<Response | void> {
-  const respond = (value: Response) => sendResponse(value, response)
-
-  if (request.method !== 'GET') {
-    return respond(methodNotAllowed(['GET']))
+export default async function handler(req: any, res: any): Promise<void> {
+  if (req.method !== 'GET') {
+    return methodNotAllowed(res, ['GET'])
   }
 
   const env = loadServerEnv()
-  const requestUrl = getRequestUrl(request, env.appBaseUrl)
+  const requestUrl = getRequestUrl(req, env.appBaseUrl)
   const mode = parseMode(requestUrl.searchParams.get('mode'))
   if (!VALID_MODES.includes(mode)) {
-    return respond(badRequest(`mode must be one of: ${VALID_MODES.join(', ')}`))
+    return badRequest(res, `mode must be one of: ${VALID_MODES.join(', ')}`)
   }
 
   const limit = parseLimit(requestUrl.searchParams.get('limit'))
@@ -48,14 +46,12 @@ export default async function handler(request: any, response?: any): Promise<Res
       mode,
     })
 
-    return respond(
-      json(200, {
-        rows: rows.slice(0, limit),
-        total: rows.length,
-      })
-    )
+    return json(res, 200, {
+      rows: rows.slice(0, limit),
+      total: rows.length,
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return respond(serverError(message))
+    return serverError(res, message)
   }
 }

@@ -1,4 +1,4 @@
-import { badRequest, getRequestUrl, methodNotAllowed, sendResponse, serverError } from './_lib/http'
+import { badRequest, getRequestUrl, methodNotAllowed, serverError } from './_lib/http'
 import { getReportById } from './_lib/report-store'
 import { loadServerEnv } from './_lib/env'
 
@@ -128,31 +128,25 @@ const buildSvg = (input: {
 </svg>`
 }
 
-export default async function handler(request: any, response?: any): Promise<Response | void> {
-  const respond = (value: Response) => sendResponse(value, response)
-
-  if (request.method !== 'GET') {
-    return respond(methodNotAllowed(['GET']))
+export default async function handler(req: any, res: any): Promise<void> {
+  if (req.method !== 'GET') {
+    return methodNotAllowed(res, ['GET'])
   }
 
   const env = loadServerEnv()
-  const requestUrl = getRequestUrl(request, env.appBaseUrl)
+  const requestUrl = getRequestUrl(req, env.appBaseUrl)
   const id = requestUrl.searchParams.get('id')?.trim() || ''
   if (!id) {
-    return respond(badRequest('Missing report id'))
+    return badRequest(res, 'Missing report id')
   }
 
   try {
     const report = await getReportById(id)
     if (!report) {
-      return respond(
-        new Response('Report not found', {
-          status: 404,
-          headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-          },
-        })
-      )
+      res.status(404)
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+      res.send('Report not found')
+      return
     }
 
     const svg = buildSvg({
@@ -164,17 +158,13 @@ export default async function handler(request: any, response?: any): Promise<Res
       tier: report.tier,
     })
 
-    return respond(
-      new Response(svg, {
-        status: 200,
-        headers: {
-          'Content-Type': 'image/svg+xml; charset=utf-8',
-          'Cache-Control': 'public, max-age=300, s-maxage=600',
-        },
-      })
-    )
+    res.status(200)
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600')
+    res.send(svg)
+    return
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return respond(serverError(message))
+    return serverError(res, message)
   }
 }

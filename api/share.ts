@@ -1,4 +1,4 @@
-import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, methodNotAllowed, sendResponse, serverError } from './_lib/http'
+import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, methodNotAllowed, serverError } from './_lib/http'
 import { loadServerEnv } from './_lib/env'
 import { buildReportLinks } from './_lib/report-links'
 import { getReportById } from './_lib/report-store'
@@ -49,58 +49,47 @@ const toMetaHtml = (input: {
 </html>`
 }
 
-export default async function handler(request: any, response?: any): Promise<Response | void> {
-  const respond = (value: Response) => sendResponse(value, response)
-
-  if (request.method !== 'GET') {
-    return respond(methodNotAllowed(['GET']))
+export default async function handler(req: any, res: any): Promise<void> {
+  if (req.method !== 'GET') {
+    return methodNotAllowed(res, ['GET'])
   }
 
   const env = loadServerEnv()
-  const requestUrl = getRequestUrl(request, env.appBaseUrl)
+  const requestUrl = getRequestUrl(req, env.appBaseUrl)
   const id = requestUrl.searchParams.get('id')?.trim() || ''
   if (!id) {
-    return respond(badRequest('Missing report id'))
+    return badRequest(res, 'Missing report id')
   }
 
   try {
     const report = await getReportById(id)
     if (!report) {
-      return respond(
-        new Response('<!doctype html><title>Report not found</title><p>Report not found.</p>', {
-          status: 404,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-          },
-        })
-      )
+      res.status(404)
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.send('<!doctype html><title>Report not found</title><p>Report not found.</p>')
+      return
     }
 
-    const baseUrl = getRequestBaseUrl(request, env.appBaseUrl)
+    const baseUrl = getRequestBaseUrl(req, env.appBaseUrl)
     const links = buildReportLinks(baseUrl, report.id)
 
     const title = `BBB ${modeLabel(report.mode)} | ${report.grade} ${report.score.toFixed(1)} - ${report.scenario_name}`
     const description = `${report.model_id} on tier ${report.tier}. View full public report and challenge link.`
 
-    return respond(
-      new Response(
-        toMetaHtml({
-          title,
-          description,
-          canonicalUrl: links.canonical_url,
-          shareUrl: links.share_url,
-          imageUrl: links.og_image_url,
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-          },
-        }
-      )
+    res.status(200)
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(
+      toMetaHtml({
+        title,
+        description,
+        canonicalUrl: links.canonical_url,
+        shareUrl: links.share_url,
+        imageUrl: links.og_image_url,
+      })
     )
+    return
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return respond(serverError(message))
+    return serverError(res, message)
   }
 }
