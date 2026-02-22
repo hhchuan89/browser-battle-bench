@@ -45,7 +45,7 @@ export const publishReport = async (
 export const fetchPublicReport = async (
   id: string
 ): Promise<PublicReportResponse> => {
-  const response = await fetch(`/api/report/${encodeURIComponent(id)}`)
+  const response = await fetch(`/api/report-public?id=${encodeURIComponent(id)}`)
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
   }
@@ -65,7 +65,7 @@ export const fetchGlobalLeaderboard = async (options?: {
   }
 
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  const response = await fetch(`/api/leaderboard/global${suffix}`)
+  const response = await fetch(`/api/leaderboard-global${suffix}`)
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
   }

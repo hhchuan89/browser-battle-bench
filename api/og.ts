@@ -1,5 +1,9 @@
-import { badRequest, methodNotAllowed, serverError } from '../_lib/http'
-import { getReportById } from '../_lib/report-store'
+import { badRequest, methodNotAllowed, serverError } from './_lib/http'
+import { getReportById } from './_lib/report-store'
+
+export const config = {
+  runtime: 'nodejs',
+}
 
 const THEMES: Record<string, {
   icon: string

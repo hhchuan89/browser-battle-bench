@@ -1,6 +1,10 @@
-import { badRequest, methodNotAllowed, serverError, json } from '../_lib/http'
-import type { PublishMode } from '../_lib/contracts'
-import { listReports } from '../_lib/report-store'
+import { badRequest, methodNotAllowed, serverError, json } from './_lib/http'
+import type { PublishMode } from './_lib/contracts'
+import { listReports } from './_lib/report-store'
+
+export const config = {
+  runtime: 'nodejs',
+}
 
 const VALID_MODES: Array<PublishMode | 'all'> = ['all', 'arena', 'quick', 'gauntlet', 'stress']
 

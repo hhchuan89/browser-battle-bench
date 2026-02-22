@@ -15,8 +15,8 @@ export const buildReportLinks = (baseUrl: string, id: string): ReportLinks => {
   const token = encodePathSegment(id)
   return {
     id,
-    share_url: `${base}/api/share/${token}`,
+    share_url: `${base}/api/share?id=${token}`,
     canonical_url: `${base}/r/${token}`,
-    og_image_url: `${base}/api/og/${token}.png`,
+    og_image_url: `${base}/api/og?id=${token}`,
   }
 }

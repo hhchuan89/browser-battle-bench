@@ -5,6 +5,10 @@ import { enforceUploadRateLimit } from '../_lib/rate-limit'
 import { buildReportLinks } from '../_lib/report-links'
 import { insertReport } from '../_lib/report-store'
 
+export const config = {
+  runtime: 'nodejs',
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return methodNotAllowed(res, ['POST'])

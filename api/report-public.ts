@@ -1,7 +1,11 @@
-import { badRequest, getRequestBaseUrl, methodNotAllowed, notFound, serverError, json } from '../_lib/http'
-import { loadServerEnv } from '../_lib/env'
-import { buildReportLinks } from '../_lib/report-links'
-import { getReportById } from '../_lib/report-store'
+import { badRequest, getRequestBaseUrl, methodNotAllowed, notFound, serverError, json } from './_lib/http'
+import { loadServerEnv } from './_lib/env'
+import { buildReportLinks } from './_lib/report-links'
+import { getReportById } from './_lib/report-store'
+
+export const config = {
+  runtime: 'nodejs',
+}
 
 const readId = (value: unknown): string | null => {
   if (typeof value === 'string' && value.trim()) return value.trim()
