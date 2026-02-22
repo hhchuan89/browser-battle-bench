@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
-import { getClientIp } from './http'
-import { loadServerEnv } from './env'
-import { SupabaseRestError, supabaseRest } from './supabase'
+import { getClientIp } from './http.js'
+import { loadServerEnv } from './env.js'
+import { SupabaseRestError, supabaseRest } from './supabase.js'
 
 interface GuardRow {
   ip_hash: string

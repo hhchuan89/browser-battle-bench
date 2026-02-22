@@ -1,7 +1,7 @@
-import { badRequest, getRequestBaseUrl, getRequestUrl, methodNotAllowed, notFound, serverError, json } from './_lib/http'
-import { loadServerEnv } from './_lib/env'
-import { buildReportLinks } from './_lib/report-links'
-import { getReportById } from './_lib/report-store'
+import { badRequest, getRequestBaseUrl, getRequestUrl, methodNotAllowed, notFound, serverError, json } from './_lib/http.js'
+import { loadServerEnv } from './_lib/env.js'
+import { buildReportLinks } from './_lib/report-links.js'
+import { getReportById } from './_lib/report-store.js'
 
 export default async function handler(req: any, res?: any): Promise<void | Response> {
   if (req.method !== 'GET') {

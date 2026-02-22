@@ -1,7 +1,7 @@
-import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, html, methodNotAllowed, serverError } from './_lib/http'
-import { loadServerEnv } from './_lib/env'
-import { buildReportLinks } from './_lib/report-links'
-import { getReportById } from './_lib/report-store'
+import { badRequest, escapeHtml, getRequestBaseUrl, getRequestUrl, html, methodNotAllowed, serverError } from './_lib/http.js'
+import { loadServerEnv } from './_lib/env.js'
+import { buildReportLinks } from './_lib/report-links.js'
+import { getReportById } from './_lib/report-store.js'
 
 const modeLabel = (mode: string): string =>
   mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase()

@@ -1,5 +1,5 @@
-import type { PublicReportRecord, PublishMode, PublishReportInput, ShareGrade, StoredReportRow } from './contracts'
-import { SupabaseRestError, supabaseRest } from './supabase'
+import type { PublicReportRecord, PublishMode, PublishReportInput, ShareGrade, StoredReportRow } from './contracts.js'
+import { SupabaseRestError, supabaseRest } from './supabase.js'
 
 const DEFAULT_MODE: PublishMode = 'quick'
 const VALID_MODES: PublishMode[] = ['arena', 'quick', 'gauntlet', 'stress']

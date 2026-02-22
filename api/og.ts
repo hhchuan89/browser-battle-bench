@@ -1,6 +1,6 @@
-import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from './_lib/http'
-import { getReportById } from './_lib/report-store'
-import { loadServerEnv } from './_lib/env'
+import { badRequest, getRequestUrl, methodNotAllowed, serverError, text } from './_lib/http.js'
+import { getReportById } from './_lib/report-store.js'
+import { loadServerEnv } from './_lib/env.js'
 
 const THEMES: Record<string, {
   icon: string

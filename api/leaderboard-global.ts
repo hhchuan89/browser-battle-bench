@@ -1,7 +1,7 @@
-import { badRequest, getRequestUrl, methodNotAllowed, serverError, json } from './_lib/http'
-import type { PublishMode } from './_lib/contracts'
-import { listReports } from './_lib/report-store'
-import { loadServerEnv } from './_lib/env'
+import { badRequest, getRequestUrl, methodNotAllowed, serverError, json } from './_lib/http.js'
+import type { PublishMode } from './_lib/contracts.js'
+import { listReports } from './_lib/report-store.js'
+import { loadServerEnv } from './_lib/env.js'
 
 const VALID_MODES: Array<PublishMode | 'all'> = ['all', 'arena', 'quick', 'gauntlet', 'stress']
 

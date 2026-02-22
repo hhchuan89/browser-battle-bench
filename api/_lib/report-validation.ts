@@ -1,4 +1,4 @@
-import type { PublishMode, PublishReportInput, ShareGrade } from './contracts'
+import type { PublishMode, PublishReportInput, ShareGrade } from './contracts.js'
 
 const VALID_MODES: PublishMode[] = ['arena', 'quick', 'gauntlet', 'stress']
 const VALID_GRADES: ShareGrade[] = ['S', 'A', 'B', 'C', 'F']

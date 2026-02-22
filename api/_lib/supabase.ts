@@ -1,4 +1,4 @@
-import { loadServerEnv } from './env'
+import { loadServerEnv } from './env.js'
 
 export class SupabaseRestError extends Error {
   status: number

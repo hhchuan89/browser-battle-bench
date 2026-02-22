@@ -1,9 +1,9 @@
-import { badRequest, getRequestBaseUrl, methodNotAllowed, readBody, serverError, tooManyRequests, json } from '../_lib/http'
-import { loadServerEnv } from '../_lib/env'
-import { validatePublishReportInput } from '../_lib/report-validation'
-import { enforceUploadRateLimit } from '../_lib/rate-limit'
-import { buildReportLinks } from '../_lib/report-links'
-import { insertReport } from '../_lib/report-store'
+import { badRequest, getRequestBaseUrl, methodNotAllowed, readBody, serverError, tooManyRequests, json } from '../_lib/http.js'
+import { loadServerEnv } from '../_lib/env.js'
+import { validatePublishReportInput } from '../_lib/report-validation.js'
+import { enforceUploadRateLimit } from '../_lib/rate-limit.js'
+import { buildReportLinks } from '../_lib/report-links.js'
+import { insertReport } from '../_lib/report-store.js'
 
 export default async function handler(req: any, res?: any): Promise<void | Response> {
   if (req.method !== 'POST') {
