@@ -1,7 +1,7 @@
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '')
 
 const encodePathSegment = (value: string): string =>
-  encodeURIComponent(value).replaceAll('%2F', '_')
+  encodeURIComponent(value).replace(/%2F/g, '_')
 
 export interface ReportLinks {
   id: string
