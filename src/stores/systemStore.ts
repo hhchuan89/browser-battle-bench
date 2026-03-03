@@ -26,6 +26,7 @@ export const useSystemStore = defineStore('system', () => {
   const modelLoadingProgress = ref(0);
   const loadingText = ref('');
   const isModelReady = ref(false);
+  const engineInitError = ref<string | null>(null);
   const outputStream = ref('');
   const lastInferenceTimings = ref<{
     ttftMs: number | null;
@@ -80,6 +81,10 @@ export const useSystemStore = defineStore('system', () => {
     // Todo: Trigger actual logic
   }
 
+  function clearEngineInitError() {
+    engineInitError.value = null;
+  }
+
   /**
    * Initializes the LLM Engine
    */
@@ -88,6 +93,7 @@ export const useSystemStore = defineStore('system', () => {
 
     status.value.webLlmEngine = 'LOADING';
     loadingText.value = "Initializing Engine...";
+    engineInitError.value = null;
 
     const engine = LLMEngine.getInstance();
     const selectedModelId = resolveSelectedModelId();
@@ -101,9 +107,11 @@ export const useSystemStore = defineStore('system', () => {
       status.value.webLlmEngine = 'ONLINE';
       isModelReady.value = true;
       loadingText.value = "Engine Ready";
+      engineInitError.value = null;
     } catch (e) {
       status.value.webLlmEngine = 'ERROR';
       loadingText.value = "Initialization Failed";
+      engineInitError.value = e instanceof Error ? e.message : String(e);
       console.error(e);
     }
   }
@@ -178,12 +186,14 @@ export const useSystemStore = defineStore('system', () => {
     modelLoadingProgress,
     loadingText,
     isModelReady,
+    engineInitError,
     outputStream,
     lastInferenceTimings,
     isPanic,
     panicReason,
     updateStatus,
     startBattle,
+    clearEngineInitError,
     initializeEngine,
     runInference,
     triggerPanic,
