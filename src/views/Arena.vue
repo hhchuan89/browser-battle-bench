@@ -22,6 +22,8 @@ import { z } from 'zod'
 const selectedSchema = ref<SchemaDefinition>(easySchemas[0])
 const battleStatus = ref<'idle' | 'loading' | 'streaming' | 'scoring' | 'complete'>('idle')
 const error = ref<string | null>(null)
+const shaderRecoveryMessage = ref<string | null>(null)
+const clearingShaderCache = ref(false)
 const challengeHint = ref<string | null>(null)
 const arenaRunRef = ref<string | null>(null)
 const publishedShareLinks = ref<PublishedShareLinks | null>(null)
@@ -67,9 +69,106 @@ const availableModels = [
   { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC', name: 'Llama 3.1 8B', tier: 'pro' },
 ]
 
+const SHADER_FALLBACK_MODEL = 'Llama-3.2-3B-Instruct-q4f16_1-MLC'
+
+const isShaderModuleError = computed(() => {
+  const message = (error.value || '').toLowerCase()
+  return (
+    message.includes('invalid shadermodule') ||
+    message.includes('shadermodule') ||
+    message.includes('copy_single_page_kernel') ||
+    message.includes('while validating compute stage')
+  )
+})
+
+const clearLikelyModelCaches = async (): Promise<void> => {
+  if (typeof window === 'undefined') return
+  const hints = ['webllm', 'mlc', 'bbb-model-cache']
+
+  if (typeof caches !== 'undefined' && typeof caches.keys === 'function') {
+    try {
+      const keys = await caches.keys()
+      const targetKeys = keys.filter((key) =>
+        hints.some((hint) => key.toLowerCase().includes(hint))
+      )
+      await Promise.all(targetKeys.map((key) => caches.delete(key)))
+    } catch {
+      // ignore cache storage failures
+    }
+  }
+
+  if (typeof indexedDB === 'undefined') return
+  const candidates = new Set<string>(['bbb-model-cache', 'webllm', 'webllm-model-cache'])
+  const databases = (indexedDB as IDBFactory & { databases?: () => Promise<Array<{ name?: string }>> }).databases
+  if (typeof databases === 'function') {
+    try {
+      const discovered = await databases.call(indexedDB)
+      for (const entry of discovered || []) {
+        const name = (entry?.name || '').trim()
+        if (!name) continue
+        if (hints.some((hint) => name.toLowerCase().includes(hint))) {
+          candidates.add(name)
+        }
+      }
+    } catch {
+      // ignore unsupported browser API failures
+    }
+  }
+
+  await Promise.all(
+    Array.from(candidates).map(
+      (name) =>
+        new Promise<void>((resolve) => {
+          try {
+            const request = indexedDB.deleteDatabase(name)
+            request.onsuccess = () => resolve()
+            request.onerror = () => resolve()
+            request.onblocked = () => resolve()
+          } catch {
+            resolve()
+          }
+        })
+    )
+  )
+}
+
+const clearShaderCacheAndRetry = async () => {
+  shaderRecoveryMessage.value = null
+  clearingShaderCache.value = true
+  try {
+    await clearLikelyModelCaches()
+    resetBattle()
+    shaderRecoveryMessage.value =
+      'Model cache cleared. Try Start Battle again. If it still fails, switch model.'
+  } catch {
+    shaderRecoveryMessage.value =
+      'Cache clear did not complete cleanly. Try switching model or reloading this page.'
+  } finally {
+    clearingShaderCache.value = false
+  }
+}
+
+const switchToShaderFallbackModel = () => {
+  const fallback = availableModels.find((model) => model.id === SHADER_FALLBACK_MODEL)
+  const nextModel =
+    fallback && fallback.id !== selectedModel.value
+      ? fallback
+      : availableModels.find((model) => model.id !== selectedModel.value)
+
+  if (!nextModel) {
+    shaderRecoveryMessage.value = 'No alternative model available.'
+    return
+  }
+
+  selectedModel.value = nextModel.id
+  resetBattle()
+  shaderRecoveryMessage.value = `Switched model to ${nextModel.name}. Try Start Battle again.`
+}
+
 // Start battle
 const startBattle = async () => {
   error.value = null
+  shaderRecoveryMessage.value = null
   arenaRunRef.value = null
   publishedShareLinks.value = null
   outputText.value = ''
@@ -223,11 +322,71 @@ onMounted(() => {
         {{ challengeHint }}
       </div>
 
+      <div
+        v-if="shaderRecoveryMessage && !error"
+        class="mb-6 border border-green-700 bg-green-900/20 rounded-lg p-3 text-sm text-green-200"
+      >
+        {{ shaderRecoveryMessage }}
+      </div>
+
       <!-- Error Display -->
-      <div v-if="error" class="mb-6 p-4 border border-red-600 bg-red-900/20 rounded-lg">
+      <div
+        v-if="error && isShaderModuleError"
+        class="mb-6 p-4 border border-amber-600 bg-amber-900/15 rounded-lg"
+      >
+        <p class="text-amber-300 font-bold">⚠️ WebGPU Shader Compatibility Issue</p>
+        <p class="text-amber-200 mt-1 text-sm">
+          This model failed to compile a GPU shader on your current browser/GPU combination.
+        </p>
+        <p class="text-amber-100/90 mt-2 text-sm">
+          Use one-click recovery below. Raw error details are hidden by default.
+        </p>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            @click="void clearShaderCacheAndRetry()"
+            :disabled="clearingShaderCache"
+            class="px-4 py-2 bg-amber-700 hover:bg-amber-600 disabled:bg-amber-900/50 disabled:cursor-not-allowed text-black rounded text-sm font-semibold"
+          >
+            {{ clearingShaderCache ? 'Clearing Cache...' : 'Clear Model Cache' }}
+          </button>
+          <button
+            @click="switchToShaderFallbackModel"
+            class="px-4 py-2 bg-green-700 hover:bg-green-600 text-black rounded text-sm font-semibold"
+          >
+            Switch Model (Recommended)
+          </button>
+          <router-link
+            to="/diagnostics"
+            class="px-4 py-2 border border-amber-500 hover:bg-amber-900/30 rounded text-sm"
+          >
+            Open Diagnostics
+          </router-link>
+          <button
+            @click="resetBattle"
+            class="px-4 py-2 border border-amber-700 hover:bg-amber-900/20 rounded text-sm"
+          >
+            Dismiss
+          </button>
+        </div>
+
+        <p
+          v-if="shaderRecoveryMessage"
+          class="mt-3 text-sm text-green-300"
+        >
+          {{ shaderRecoveryMessage }}
+        </p>
+
+        <details class="mt-3 text-xs text-amber-300/80">
+          <summary class="cursor-pointer hover:text-amber-200">Show technical details</summary>
+          <pre class="mt-2 whitespace-pre-wrap break-all">{{ error }}</pre>
+        </details>
+      </div>
+
+      <div v-else-if="error" class="mb-6 p-4 border border-red-600 bg-red-900/20 rounded-lg">
         <p class="text-red-400 font-bold">❌ Error</p>
         <p class="text-red-300 mt-1">{{ error }}</p>
-        <button 
+        <button
           @click="resetBattle"
           class="mt-3 px-4 py-2 bg-red-800 hover:bg-red-700 rounded text-sm"
         >
